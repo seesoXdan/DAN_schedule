@@ -1,6 +1,7 @@
 /* DAN 일정 · 서비스워커 (오프라인 캐시) */
-const CACHE = 'dan-schedule-v1';
-const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
+const CACHE = 'dan-schedule-v2';
+const ASSETS = ['./', './index.html', './manifest.json',
+  './icon-192.png', './icon-512.png', './apple-touch-icon.png', './favicon-32.png', './favicon-16.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

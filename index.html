@@ -254,6 +254,21 @@ main{flex:1;padding-top:6px}
 .set-btn{border:none;background:var(--bg-soft);color:var(--accent);font-size:14px;font-weight:700;padding:9px 15px;border-radius:10px;cursor:pointer;font-family:inherit;transition:background var(--dur)}
 .set-btn:hover{background:var(--bg-soft2)}
 .set-btn.danger{color:var(--red)}
+#syncFields{padding:4px 16px 16px;display:none}
+#syncFields.on{display:block}
+.sync-field{margin-bottom:11px}
+.sync-field label{display:block;font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:6px}
+.sync-field label .hint{font-weight:500;color:var(--text-3)}
+.sync-field input{width:100%;border:1.5px solid var(--border);background:var(--bg-soft);border-radius:10px;padding:11px 12px;font-size:14px;color:var(--text);outline:none;font-family:inherit}
+.sync-field input:focus{border-color:var(--accent);background:var(--bg)}
+.sync-code-row{display:flex;gap:8px}
+.sync-code-row input{flex:1}
+.sync-actions{display:flex;gap:8px;margin-top:4px}
+.sync-actions .set-btn{flex:1;text-align:center}
+.sync-note{font-size:12px;color:var(--text-3);margin-top:12px;line-height:1.5}
+.sync-status.ok{color:var(--green)}
+.sync-status.err{color:var(--red)}
+.sync-status.busy{color:var(--accent)}
 
 /* ---------- Modal ---------- */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);z-index:100;display:none;
@@ -491,6 +506,26 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <div class="switch" id="swNotif"></div>
             </div>
           </div>
+          <div class="section-title">클라우드 동기화</div>
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-ico" style="background:var(--accent)"><svg data-l="cloud"></svg></div>
+              <div class="set-txt"><div class="t">기기 간 동기화</div><div class="s" id="syncStatus">꺼짐 — 아래 정보를 입력하세요</div></div>
+              <div class="switch" id="swSync"></div>
+            </div>
+            <div id="syncFields">
+              <div class="sync-field"><label>Firebase 프로젝트 ID</label><input id="syncProject" placeholder="예: dan-schedule-abc12" autocomplete="off" spellcheck="false"></div>
+              <div class="sync-field"><label>웹 API 키</label><input id="syncKey" placeholder="AIza..." autocomplete="off" spellcheck="false"></div>
+              <div class="sync-field"><label>동기화 코드 <span class="hint">(모든 기기 동일하게)</span></label>
+                <div class="sync-code-row"><input id="syncCode" placeholder="예: dan-9f3k2p" autocomplete="off" spellcheck="false"><button class="set-btn" id="syncGen">생성</button></div>
+              </div>
+              <div class="sync-actions">
+                <button class="set-btn" id="syncCopy">코드 복사</button>
+                <button class="set-btn" id="syncNowBtn">지금 동기화</button>
+              </div>
+              <p class="sync-note">여러 기기에 같은 프로젝트 ID·API 키·코드를 입력하면 자동 동기화됩니다. 설정법은 <b>동기화설정.md</b> 참고.</p>
+            </div>
+          </div>
           <div class="section-title">연동 & 데이터</div>
           <div class="set-group">
             <div class="set-row">
@@ -606,6 +641,7 @@ const ICONS={
   bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1z"/>',
+  cloud:'<path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.8A6 6 0 1 0 6 15.9"/><path d="M6 16h11.5"/>',
 };
 function renderIcons(root=document){
   root.querySelectorAll('svg[data-l]').forEach(s=>{
@@ -623,10 +659,16 @@ const TAGS=[
   {id:'orange',c:'#ff9500',name:'업무'},{id:'purple',c:'#af52de',name:'약속'},
   {id:'red',c:'#ff3b30',name:'중요'}
 ];
-let state={items:[],settings:{dark:false,auto:true,notif:false}};
-function loadState(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r){state=Object.assign(state,r);state.settings=Object.assign({dark:false,auto:true,notif:false},r.settings)}}catch(e){}}
-function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+const SYNC_DEFAULT={enabled:false,project:'',key:'',code:''};
+let state={items:[],tombstones:[],settings:{dark:false,auto:true,notif:false,sync:Object.assign({},SYNC_DEFAULT)}};
+function loadState(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r){state=Object.assign(state,r);
+  state.tombstones=r.tombstones||[];
+  state.settings=Object.assign({dark:false,auto:true,notif:false},r.settings);
+  state.settings.sync=Object.assign({},SYNC_DEFAULT,r.settings&&r.settings.sync);}}catch(e){}}
+function saveLocal(){localStorage.setItem(KEY,JSON.stringify(state))}
+function save(){saveLocal();schedulePush();}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+const now=()=>Date.now();
 
 /* ===== Date helpers ===== */
 const pad=n=>String(n).padStart(2,'0');
@@ -665,6 +707,7 @@ function toggleDone(item,dateStr){
     item.doneDates=item.doneDates||[];const i=item.doneDates.indexOf(dateStr);
     if(i>=0)item.doneDates.splice(i,1);else item.doneDates.push(dateStr);
   }else item.done=!item.done;
+  item.updated=Date.now();
 }
 function itemsOn(dateStr){
   return state.items.filter(it=>occursOn(it,dateStr)&&match(it)).sort(sortItems);
@@ -720,6 +763,7 @@ function reschedule(item){
       if(isRange(item)){const delta=Math.round((parseD(nd)-parseD(item.date))/86400000);item.endDate=addDays(item.endDate,delta);}
       item.date=nd;
       if(item.repeat&&item.repeat!=='none')item.repeat='none'; // 옮기면 단발 일정으로
+      item.updated=Date.now();
       save();refresh();toast('이동됨 → '+fmtDate(nd));
     }
     setTimeout(()=>inp.remove(),0);
@@ -996,19 +1040,73 @@ function saveModal(){
   const repeat=document.getElementById('fRepeat').value;
   if(editId){
     const it=state.items.find(x=>x.id===editId);
-    Object.assign(it,{title,type:pickedType,date:start,endDate,time,repeat,tag:pickedTag});
+    Object.assign(it,{title,type:pickedType,date:start,endDate,time,repeat,tag:pickedTag,updated:Date.now()});
   }else{
-    state.items.push({id:uid(),title,type:pickedType,date:start,endDate,time,repeat,tag:pickedTag,done:false,doneDates:[],order:state.items.length,created:Date.now()});
+    state.items.push({id:uid(),title,type:pickedType,date:start,endDate,time,repeat,tag:pickedTag,done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:Date.now()});
   }
   save();closeModal();refresh();toast(editId?'수정됨':(pickedType==='event'?'일정 추가됨':'할 일 추가됨'));scheduleNotifs();
 }
-function delItem(id){state.items=state.items.filter(x=>x.id!==id);save();refresh();toast('삭제됨')}
+function delItem(id){
+  state.items=state.items.filter(x=>x.id!==id);
+  state.tombstones=(state.tombstones||[]).filter(t=>t.id!==id);
+  state.tombstones.push({id,updated:Date.now()});
+  save();refresh();toast('삭제됨');
+}
+
+/* ===== 클라우드 동기화 (Supabase) ===== */
+let pushTimer=null;
+function syncCfg(){return (state.settings&&state.settings.sync)||SYNC_DEFAULT}
+function syncReady(){const s=syncCfg();return !!(s.enabled&&s.project&&s.key&&s.code)}
+function setSyncStatus(txt,cls){const el=document.getElementById('syncStatus');if(el){el.textContent=txt;el.className='sync-status '+(cls||'')}}
+function schedulePush(){if(!syncReady())return;clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,1200);}
+function pruneTombstones(){const cut=Date.now()-45*86400000;state.tombstones=(state.tombstones||[]).filter(t=>(t.updated||0)>cut);}
+/* Firestore REST: 문서 boards/{code}, payload는 JSON 문자열 한 필드로 저장 */
+function fsUrl(){const s=syncCfg();return 'https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(s.project)+'/databases/(default)/documents/boards/'+encodeURIComponent(s.code)+'?key='+encodeURIComponent(s.key);}
+async function pushCloud(){
+  if(!syncReady())return;pruneTombstones();
+  const payload=JSON.stringify({items:state.items,tomb:state.tombstones||[]});
+  const body={fields:{data:{stringValue:payload},updated_at:{integerValue:String(Date.now())}}};
+  try{
+    setSyncStatus('동기화 중…','busy');
+    const r=await fetch(fsUrl(),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    setSyncStatus(r.ok?'동기화됨 ✓':'오류 ('+r.status+')',r.ok?'ok':'err');
+  }catch(e){setSyncStatus('오프라인','err')}
+}
+async function pullCloud(silent){
+  if(!syncReady())return;
+  try{
+    if(!silent)setSyncStatus('불러오는 중…','busy');
+    const r=await fetch(fsUrl(),{headers:{'Content-Type':'application/json'}});
+    if(r.status===404){setSyncStatus('동기화됨 ✓','ok');return;} // 아직 서버에 데이터 없음
+    if(!r.ok){setSyncStatus('오류 ('+r.status+')','err');return}
+    const doc=await r.json();
+    const raw=doc&&doc.fields&&doc.fields.data&&doc.fields.data.stringValue;
+    if(raw){
+      let p;try{p=JSON.parse(raw)}catch(e){p=null}
+      if(p){
+        const merged=mergeBoards(state.items,state.tombstones||[],p.items||[],p.tomb||[]);
+        state.items=merged.items;state.tombstones=merged.tomb;saveLocal();refresh();
+      }
+    }
+    setSyncStatus('동기화됨 ✓','ok');
+  }catch(e){setSyncStatus('오프라인','err')}
+}
+function mergeBoards(li,lt,ri,rt){
+  const map=new Map();
+  const consider=(rec,deleted)=>{const u=rec.updated||0;const cur=map.get(rec.id);if(!cur||u>=cur.u)map.set(rec.id,{u,deleted,rec})};
+  (li||[]).forEach(it=>consider(it,false));(ri||[]).forEach(it=>consider(it,false));
+  (lt||[]).forEach(t=>consider(t,true));(rt||[]).forEach(t=>consider(t,true));
+  const items=[],tomb=[];
+  map.forEach(v=>{if(v.deleted)tomb.push({id:v.rec.id,updated:v.u});else items.push(v.rec)});
+  return {items,tomb};
+}
+async function syncNow(){await pullCloud();await pushCloud();}
 
 /* ===== Inline quick add (제목만 + Enter) ===== */
 function quickAddItem(type,title,dateStr){
   title=title.trim();if(!title)return false;
   const d=dateStr||(activeView==='calendar'?calSel:today());
-  state.items.push({id:uid(),title,type,date:d,endDate:'',time:'',repeat:'none',tag:'blue',done:false,doneDates:[],order:state.items.length,created:Date.now()});
+  state.items.push({id:uid(),title,type,date:d,endDate:'',time:'',repeat:'none',tag:'blue',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:Date.now()});
   save();refresh();return true;
 }
 /* quick-add row bound to a specific date (used in Tasks day/week/month) */
@@ -1087,7 +1185,7 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 /* ===== Init ===== */
 function init(){
   loadState();
-  state.items.forEach(it=>{if(!it.type)it.type=it.time?'event':'todo'});
+  state.items.forEach(it=>{if(!it.type)it.type=it.time?'event':'todo';if(!it.updated)it.updated=it.created||Date.now();});
   renderIcons();
   const d=new Date();document.getElementById('greetKicker').textContent=kickers.today;
   applyTheme();refresh();if(state.settings.notif)scheduleNotifs();
@@ -1131,7 +1229,24 @@ function init(){
   };
   document.getElementById('btnGcal').onclick=()=>toast('Google Calendar 연동은 준비 중이에요');
   document.getElementById('btnExport').onclick=exportData;
-  document.getElementById('btnReset').onclick=()=>{if(confirm('모든 일정을 삭제할까요?')){state.items=[];save();refresh();toast('초기화됨')}};
+  document.getElementById('btnReset').onclick=()=>{if(confirm('모든 일정을 삭제할까요?')){state.items.forEach(it=>state.tombstones.push({id:it.id,updated:Date.now()}));state.items=[];save();refresh();toast('초기화됨')}};
+
+  // ----- 클라우드 동기화 UI -----
+  const sProj=document.getElementById('syncProject'),sKey=document.getElementById('syncKey'),sCode=document.getElementById('syncCode');
+  function bindSyncInput(el,field){el.addEventListener('input',()=>{state.settings.sync[field]=el.value.trim();saveLocal();});}
+  bindSyncInput(sProj,'project');bindSyncInput(sKey,'key');bindSyncInput(sCode,'code');
+  document.getElementById('swSync').onclick=async()=>{
+    const s=state.settings.sync;s.enabled=!s.enabled;saveLocal();renderSyncSettings();
+    if(s.enabled&&syncReady()){await pullCloud();await pushCloud();}
+    else if(s.enabled){toast('URL·key·코드를 입력하세요')}
+  };
+  document.getElementById('syncGen').onclick=()=>{sCode.value='dan-'+Math.random().toString(36).slice(2,8);state.settings.sync.code=sCode.value;saveLocal();renderSyncSettings();};
+  document.getElementById('syncCopy').onclick=()=>{const c=state.settings.sync.code||'';if(!c){toast('코드가 없어요');return}(navigator.clipboard?navigator.clipboard.writeText(c):Promise.reject()).then(()=>toast('코드 복사됨: '+c)).catch(()=>toast('코드: '+c));};
+  document.getElementById('syncNowBtn').onclick=async()=>{if(!syncReady()){toast('먼저 동기화를 켜고 정보를 입력하세요');return}await syncNow();toast('동기화 완료');};
+  renderSyncSettings();
+  if(syncReady()){pullCloud(true);}
+  setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},30000);
+  window.addEventListener('focus',()=>{if(syncReady())pullCloud(true)});
 
   document.addEventListener('keydown',e=>{
     if((e.ctrlKey||e.metaKey)&&(e.key==='n'||e.key==='N')){e.preventDefault();openModal(null)}
@@ -1141,13 +1256,24 @@ function init(){
 
   if(!state.items.length&&!localStorage.getItem(KEY+'.seen')){seed();localStorage.setItem(KEY+'.seen','1')}
 }
+function renderSyncSettings(){
+  const s=state.settings.sync||SYNC_DEFAULT;
+  document.getElementById('swSync').classList.toggle('on',!!s.enabled);
+  document.getElementById('syncFields').classList.toggle('on',!!s.enabled);
+  const u=document.getElementById('syncProject'),k=document.getElementById('syncKey'),c=document.getElementById('syncCode');
+  if(u&&document.activeElement!==u)u.value=s.project||'';
+  if(k&&document.activeElement!==k)k.value=s.key||'';
+  if(c&&document.activeElement!==c)c.value=s.code||'';
+  if(!s.enabled)setSyncStatus('꺼짐','');
+  else if(!syncReady())setSyncStatus('정보 입력 필요','busy');
+}
 function exportData(){
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='daesik-schedule-'+today()+'.json';a.click();toast('내보내기 완료');
 }
 function seed(){
   const t=today();
-  const mk=(o)=>Object.assign({id:uid(),endDate:'',time:'',repeat:'none',done:false,doneDates:[],created:Date.now()},o);
+  const mk=(o)=>Object.assign({id:uid(),endDate:'',time:'',repeat:'none',done:false,doneDates:[],created:Date.now(),updated:Date.now()},o);
   state.items=[
     mk({title:'팀 스탠드업 미팅',type:'event',date:t,time:'10:00',repeat:'weekday',tag:'orange',order:0}),
     mk({title:'점심 약속 — 지훈',type:'event',date:t,time:'12:30',tag:'purple',order:1}),

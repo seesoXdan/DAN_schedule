@@ -1,0 +1,15 @@
+{
+  "name": "대식 일정 · DAN",
+  "short_name": "DAN 일정",
+  "description": "초고속 개인 일정 · 할 일 관리",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0a84ff",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

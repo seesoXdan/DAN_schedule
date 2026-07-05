@@ -209,6 +209,31 @@ main{flex:1;padding-top:6px}
 .cal-cell.today .d{background:#fff}
 @media(min-width:900px){.cal-cell{border-radius:14px;font-size:16px}.cal-grid{gap:7px}}
 .cal-day-list{margin-top:22px}
+/* ---------- Today mini date picker ---------- */
+.today-nav-wrap{position:relative}
+.t-label .cal-ic{display:inline-flex;vertical-align:-2px;margin-right:6px;color:var(--text-3)}
+.t-label .cal-ic svg{width:15px;height:15px}
+.tdy-cal{display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:60;margin-top:6px;
+  width:290px;max-width:calc(100vw - 40px);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);padding:14px}
+.tdy-cal.on{display:block;animation:fade .16s var(--ease)}
+.tdy-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.tdy-cal-month{font-size:15px;font-weight:800;letter-spacing:-.02em}
+.tdy-cal-head .icon-btn{width:34px;height:34px}
+.tdy-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.tdy-cal-grid .tdow{text-align:center;font-size:11px;font-weight:700;color:var(--text-3);padding:4px 0}
+.tdy-cal-grid .tdow:first-child{color:var(--red)}
+.tdy-cal-cell{aspect-ratio:1;border:none;background:none;cursor:pointer;border-radius:10px;font-family:inherit;
+  font-size:13.5px;font-weight:600;color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  position:relative;transition:background var(--dur) var(--ease),color var(--dur)}
+.tdy-cal-cell:hover{background:var(--bg-soft)}
+.tdy-cal-cell.other{color:var(--text-3);opacity:.45}
+.tdy-cal-cell.sun{color:var(--red)}
+.tdy-cal-cell.today{color:var(--accent);font-weight:800}
+.tdy-cal-cell.sel{background:var(--accent);color:#fff}
+.tdy-cal-cell .cd{width:4px;height:4px;border-radius:50%;background:var(--accent);position:absolute;bottom:5px}
+.tdy-cal-cell.sel .cd{background:#fff}
+.tdy-cal-cell.today .cd{background:var(--accent)}
 /* label calendar with multi-day bars */
 .mcal{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .mcal-dow{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg-soft);border-bottom:1px solid var(--border)}
@@ -440,9 +465,27 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <div class="main-inner">
         <!-- TODAY -->
         <section class="view on" id="view-today">
+          <div class="today-nav-wrap">
+            <div class="tasks-nav" id="todayNav">
+              <button class="icon-btn" id="tdyPrev"><svg data-l="chevron-left"></svg></button>
+              <div class="t-label" id="tdyLabel" style="cursor:pointer" title="달력에서 날짜 선택"><span class="cal-ic"><svg data-l="calendar"></svg></span><span id="tdyLabelText"></span></div>
+              <div class="t-btns">
+                <button class="icon-btn" id="tdyToday" title="오늘" style="display:none"><svg data-l="dot"></svg></button>
+                <button class="icon-btn" id="tdyNext"><svg data-l="chevron-right"></svg></button>
+              </div>
+            </div>
+            <div class="tdy-cal" id="tdyCal">
+              <div class="tdy-cal-head">
+                <button class="icon-btn" id="tdyCalPrev"><svg data-l="chevron-left"></svg></button>
+                <div class="tdy-cal-month" id="tdyCalMonth"></div>
+                <button class="icon-btn" id="tdyCalNext"><svg data-l="chevron-right"></svg></button>
+              </div>
+              <div class="tdy-cal-grid" id="tdyCalGrid"></div>
+            </div>
+          </div>
           <div class="today-grid">
             <div class="progress-card">
-              <div class="progress-top"><span class="label">오늘의 완료율</span><span class="pct" id="progPct">0%</span></div>
+              <div class="progress-top"><span class="label" id="progLabel">오늘의 완료율</span><span class="pct" id="progPct">0%</span></div>
               <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
               <div class="progress-sub" id="progSub">할 일이 없어요</div>
             </div>
@@ -816,8 +859,43 @@ function reorder(fromId,toId,dateStr){
 /* ===== Renders ===== */
 function refresh(){renderToday();renderCalendar();renderTasks();if(daySheetDate)renderDaySheet();renderIcons();}
 
+let todayView=today();
+function updateTodayNav(){
+  const lbl=document.getElementById('tdyLabelText');if(!lbl)return;
+  const rel=relLabel(todayView);
+  lbl.innerHTML=esc(fmtDate(todayView))+(rel?`<span class="rel">${rel}</span>`:'');
+  const tb=document.getElementById('tdyToday');if(tb)tb.style.display=(todayView===today())?'none':'grid';
+  const pl=document.getElementById('progLabel');if(pl)pl.textContent=(todayView===today())?'오늘의 완료율':'선택한 날 완료율';
+  if(document.getElementById('tdyCal').classList.contains('on'))renderTdyCal();
+}
+/* ===== 오늘꼭꼭 미니 달력 (날짜 선택) ===== */
+let tdyCalCur=new Date();
+function renderTdyCal(){
+  const y=tdyCalCur.getFullYear(),m=tdyCalCur.getMonth();
+  document.getElementById('tdyCalMonth').textContent=`${y}년 ${m+1}월`;
+  const grid=document.getElementById('tdyCalGrid');grid.innerHTML='';
+  DOW.forEach(d=>{const e=document.createElement('div');e.className='tdow';e.textContent=d;grid.appendChild(e)});
+  const start=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),prevDim=new Date(y,m,0).getDate(),t=today();
+  for(let i=0;i<42;i++){
+    let dnum,cy=y,cm=m,other=false;
+    if(i<start){dnum=prevDim-start+1+i;other=true;cm=m-1;if(cm<0){cm=11;cy--}}
+    else if(i>=start+dim){dnum=i-start-dim+1;other=true;cm=m+1;if(cm>11){cm=0;cy++}}
+    else dnum=i-start+1;
+    const ds=`${cy}-${pad(cm+1)}-${pad(dnum)}`;
+    const cell=document.createElement('button');
+    cell.className='tdy-cal-cell'+(other?' other':'')+(i%7===0?' sun':'')+(ds===t?' today':'')+(ds===todayView?' sel':'');
+    cell.innerHTML=`<span>${dnum}</span>`;
+    if(itemsOn(ds).length){const dd=document.createElement('span');dd.className='cd';cell.appendChild(dd);}
+    cell.onclick=()=>{todayView=ds;closeTdyCal();renderToday();renderIcons();};
+    grid.appendChild(cell);
+  }
+}
+function openTdyCal(){tdyCalCur=parseD(todayView);renderTdyCal();renderIcons();document.getElementById('tdyCal').classList.add('on');}
+function closeTdyCal(){document.getElementById('tdyCal').classList.remove('on');}
+function toggleTdyCal(){document.getElementById('tdyCal').classList.contains('on')?closeTdyCal():openTdyCal();}
 function renderToday(){
-  const t=today();
+  const t=todayView;
+  updateTodayNav();
   const list=itemsOn(t);
   const events=list.filter(i=>i.type==='event');
   const todos=list.filter(i=>i.type!=='event');
@@ -1035,7 +1113,7 @@ function openModal(item,presetType){
   document.getElementById('modalTitle').textContent=item?(pickedType==='event'?'일정 편집':'할 일 편집'):(pickedType==='event'?'새 일정':'새 할 일');
   document.getElementById('fTitle').placeholder=pickedType==='event'?'어떤 일정인가요?':'무엇을 할까요?';
   document.getElementById('fTitle').value=item?item.title:'';
-  const defDate=item?item.date:(activeView==='calendar'?calSel:today());
+  const defDate=item?item.date:(activeView==='calendar'?calSel:(activeView==='today'?todayView:today()));
   document.getElementById('fStart').value=defDate;
   document.getElementById('fEnd').value=item&&isRange(item)?item.endDate:'';
   document.getElementById('fTime').value=item?(item.time||''):'';
@@ -1330,6 +1408,7 @@ const kickers={today:'TODAY',calendar:'CALENDAR · 일정',tasks:'ALL TODOS',set
 function switchView(v){
   activeView=v;
   if(v==='tasks'){taskDay=today();taskMonth=new Date();renderTasks();} // 진입 시 오늘 기준
+  if(v==='today'){todayView=today();closeTdyCal();renderToday();renderIcons();} // 진입 시 오늘로 리셋
   document.querySelectorAll('.nav-item,.side-item').forEach(n=>n.classList.toggle('on',n.dataset.view===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   document.getElementById('greetTitle').textContent=titles[v];
@@ -1355,10 +1434,20 @@ function init(){
   document.querySelectorAll('.quick-add').forEach(qa=>{
     const type=qa.dataset.qa,inp=qa.querySelector('input');
     inp.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){if(quickAddItem(type,inp.value)){inp.value='';inp.focus();toast(type==='event'?'일정 추가됨':'할 일 추가됨')}}
+      if(e.key==='Enter'){if(quickAddItem(type,inp.value,todayView)){inp.value='';inp.focus();toast(type==='event'?'일정 추가됨':'할 일 추가됨')}}
     });
-    qa.querySelector('.qa-opt').onclick=()=>{const v=inp.value.trim();inp.value='';openModal(null,type);if(v)document.getElementById('fTitle').value=v};
+    qa.querySelector('.qa-opt').onclick=()=>{const v=inp.value.trim();inp.value='';openModal(null,type);document.getElementById('fStart').value=todayView;if(v)document.getElementById('fTitle').value=v};
   });
+  // ----- 오늘꼭꼭 날짜 이동 -----
+  const tdyGo=d=>{todayView=d;closeTdyCal();renderToday();renderIcons();};
+  document.getElementById('tdyPrev').onclick=()=>tdyGo(addDays(todayView,-1));
+  document.getElementById('tdyNext').onclick=()=>tdyGo(addDays(todayView,1));
+  document.getElementById('tdyToday').onclick=()=>tdyGo(today());
+  document.getElementById('tdyLabel').onclick=e=>{e.stopPropagation();toggleTdyCal();};
+  document.getElementById('tdyCalPrev').onclick=e=>{e.stopPropagation();tdyCalCur=new Date(tdyCalCur.getFullYear(),tdyCalCur.getMonth()-1,1);renderTdyCal();renderIcons();};
+  document.getElementById('tdyCalNext').onclick=e=>{e.stopPropagation();tdyCalCur=new Date(tdyCalCur.getFullYear(),tdyCalCur.getMonth()+1,1);renderTdyCal();renderIcons();};
+  document.getElementById('tdyCal').onclick=e=>e.stopPropagation();
+  document.addEventListener('click',()=>closeTdyCal());
   document.getElementById('daySheetClose').onclick=closeDaySheet;
   document.getElementById('daySheetAdd').onclick=()=>{openModal(null,'event');if(daySheetDate)document.getElementById('fStart').value=daySheetDate;};
   document.getElementById('dayOverlay').onclick=e=>{if(e.target.id==='dayOverlay')closeDaySheet()};

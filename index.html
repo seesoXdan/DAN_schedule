@@ -1053,8 +1053,8 @@ function delItem(id){
   save();refresh();toast('삭제됨');
 }
 
-/* ===== 클라우드 동기화 (Supabase) ===== */
-let pushTimer=null;
+/* ===== 클라우드 동기화 (Firebase Firestore) ===== */
+let pushTimer=null, lastRemoteCount=-1;
 function syncCfg(){return (state.settings&&state.settings.sync)||SYNC_DEFAULT}
 function syncReady(){const s=syncCfg();return !!(s.enabled&&s.project&&s.key&&s.code)}
 function setSyncStatus(txt,cls){const el=document.getElementById('syncStatus');if(el){el.textContent=txt;el.className='sync-status '+(cls||'')}}
@@ -1077,13 +1077,14 @@ async function pullCloud(silent){
   try{
     if(!silent)setSyncStatus('불러오는 중…','busy');
     const r=await fetch(fsUrl(),{headers:{'Content-Type':'application/json'}});
-    if(r.status===404){setSyncStatus('동기화됨 ✓','ok');return;} // 아직 서버에 데이터 없음
+    if(r.status===404){lastRemoteCount=0;setSyncStatus('동기화됨 ✓ (서버 비어있음)','ok');return;} // 아직 서버에 데이터 없음
     if(!r.ok){setSyncStatus('오류 ('+r.status+')','err');return}
     const doc=await r.json();
     const raw=doc&&doc.fields&&doc.fields.data&&doc.fields.data.stringValue;
     if(raw){
       let p;try{p=JSON.parse(raw)}catch(e){p=null}
       if(p){
+        lastRemoteCount=(p.items||[]).length;
         const merged=mergeBoards(state.items,state.tombstones||[],p.items||[],p.tomb||[]);
         state.items=merged.items;state.tombstones=merged.tomb;saveLocal();refresh();
       }
@@ -1242,7 +1243,12 @@ function init(){
   };
   document.getElementById('syncGen').onclick=()=>{sCode.value='dan-'+Math.random().toString(36).slice(2,8);state.settings.sync.code=sCode.value;saveLocal();renderSyncSettings();};
   document.getElementById('syncCopy').onclick=()=>{const c=state.settings.sync.code||'';if(!c){toast('코드가 없어요');return}(navigator.clipboard?navigator.clipboard.writeText(c):Promise.reject()).then(()=>toast('코드 복사됨: '+c)).catch(()=>toast('코드: '+c));};
-  document.getElementById('syncNowBtn').onclick=async()=>{if(!syncReady()){toast('먼저 동기화를 켜고 정보를 입력하세요');return}await syncNow();toast('동기화 완료');};
+  document.getElementById('syncNowBtn').onclick=async()=>{
+    if(!syncReady()){toast('먼저 동기화를 켜고 정보를 입력하세요');return}
+    lastRemoteCount=-1;await pullCloud();await pushCloud();
+    const code=state.settings.sync.code;
+    toast('코드 '+code+' · 서버 '+(lastRemoteCount<0?'?':lastRemoteCount)+'개 · 이 기기 '+state.items.length+'개');
+  };
   renderSyncSettings();
   if(syncReady()){pullCloud(true);}
   setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},10000);

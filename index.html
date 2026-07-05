@@ -437,7 +437,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot">v1.1 · 로컬 저장</div>
+    <div class="side-foot">v1.2 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -607,7 +607,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.1 · 로컬 저장</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.2 · 로컬 저장</div>
         </section>
       </div>
     </main>
@@ -774,7 +774,7 @@ function toggleDone(item,dateStr){
   }else item.done=!item.done;
   item.updated=Date.now();
 }
-const isCal=it=>it.source==='calendar'; // 캘린더/구글캘린더에서 만든 개인 일정만 캘린더에 표시
+const isCal=it=>it.source==='calendar'||!!it.gcalId; // 직접 추가한 일정 + 구글 연동 일정만 캘린더에 표시
 function itemsOn(dateStr){
   return state.items.filter(it=>occursOn(it,dateStr)&&match(it)).sort(sortItems);
 }
@@ -1150,7 +1150,7 @@ function saveModal(){
 }
 function delItem(id){
   const gone=state.items.find(x=>x.id===id);
-  if(gone&&gone.gcalId&&gcalReady())gcalDeleteRemote(gone.gcalId);
+  if(gone&&gone.gcalId&&gcalReady())gcalDeleteRemote(gone.gcalId,gone.calId);
   state.items=state.items.filter(x=>x.id!==id);
   state.tombstones=(state.tombstones||[]).filter(t=>t.id!==id);
   state.tombstones.push({id,updated:Date.now()});
@@ -1219,7 +1219,7 @@ function gcalInitClient(){
   if(!g.clientId){toast('먼저 OAuth 클라이언트 ID를 입력하세요');return null;}
   gcalTokenClient=google.accounts.oauth2.initTokenClient({
     client_id:g.clientId,
-    scope:'https://www.googleapis.com/auth/calendar.events',
+    scope:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly',
     callback:()=>{}
   });
   gcalTokenClient._cid=g.clientId;
@@ -1283,28 +1283,45 @@ async function gcalImport(){
   const tMin=new Date();tMin.setDate(tMin.getDate()-30);
   const tMax=new Date();tMax.setDate(tMax.getDate()+365);
   const q='?singleEvents=true&orderBy=startTime&maxResults=2500&timeMin='+encodeURIComponent(tMin.toISOString())+'&timeMax='+encodeURIComponent(tMax.toISOString());
-  let r;
-  try{r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events'+q);}
-  catch(e){setGcalStatus('오류','err');toast('가져오기 실패: '+(e.message||e));return null;}
-  if(!r.ok){setGcalStatus('오류 ('+r.status+')','err');toast('가져오기 실패 ('+r.status+')');return null;}
-  const data=await r.json();const evs=data.items||[];
-  let added=0,updated=0;
-  evs.forEach(ev=>{
-    const existing=state.items.find(x=>x.gcalId===ev.id);
-    if(ev.status==='cancelled'){if(existing)delItem(existing.id);return;}
-    const f=gEventToFields(ev);if(!f)return;
-    const ts=Date.parse(ev.updated)||Date.now();
-    if(existing){Object.assign(existing,f,{gcalId:ev.id,updated:ts});updated++;}
-    else{state.items.push(Object.assign({id:uid(),gcalId:ev.id,tag:'blue',repeat:'none',source:'calendar',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:ts},f));added++;}
-  });
+  // 구글에서 보이는 모든 캘린더 목록을 가져옴(개인·공유·공휴일 등). 실패하면 primary만.
+  let calIds=[], listStatus=0;
+  try{
+    const lr=await gcalApi('/users/me/calendarList');
+    listStatus=lr.status;
+    if(lr.ok){const ld=await lr.json();calIds=(ld.items||[]).filter(c=>c.id).map(c=>c.id);}
+  }catch(e){listStatus=-1;}
+  const noPerm=(listStatus===401||listStatus===403);
+  if(noPerm){
+    setGcalStatus('권한 필요 — 다시 연결','err');
+    toast('캘린더 목록 접근 권한이 없어요. 설정에서 "구글 계정 연결"을 다시 눌러 동의해 주세요');
+    return {added:0,updated:0,calN:0,noPerm:true};
+  }
+  if(!calIds.length)calIds=[g.calendarId||'primary'];
+  let added=0,updated=0,failed=0;
+  for(const calId of calIds){
+    let r;
+    try{r=await gcalApi('/calendars/'+encodeURIComponent(calId)+'/events'+q);}
+    catch(e){failed++;continue;}
+    if(!r.ok){failed++;continue;}
+    const data=await r.json();const evs=data.items||[];
+    evs.forEach(ev=>{
+      const existing=state.items.find(x=>x.gcalId===ev.id);
+      if(ev.status==='cancelled'){if(existing)delItem(existing.id);return;}
+      const f=gEventToFields(ev);if(!f)return;
+      const ts=Date.parse(ev.updated)||Date.now();
+      if(existing){Object.assign(existing,f,{gcalId:ev.id,calId,updated:ts});updated++;}
+      else{state.items.push(Object.assign({id:uid(),gcalId:ev.id,calId,tag:'blue',repeat:'none',source:'calendar',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:ts},f));added++;}
+    });
+  }
   saveLocal();refresh();setGcalStatus('연결됨 ✓','ok');
-  return {added,updated};
+  return {added,updated,calN:calIds.length,failed};
 }
 async function gcalPushOne(it){
   const g=gcalCfg(),body=itemToGEvent(it);
+  const cal=it.calId||g.calendarId; // 가져온 항목은 원래 캘린더로, 새 항목은 기본 캘린더로
   let r;
   if(it.gcalId){
-    r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events/'+encodeURIComponent(it.gcalId),{method:'PATCH',body:JSON.stringify(body)});
+    r=await gcalApi('/calendars/'+encodeURIComponent(cal)+'/events/'+encodeURIComponent(it.gcalId),{method:'PATCH',body:JSON.stringify(body)});
     if(r.status===404||r.status===410)r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events',{method:'POST',body:JSON.stringify(body)});
   }else r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events',{method:'POST',body:JSON.stringify(body)});
   if(r.ok){const ev=await r.json();if(ev&&ev.id)it.gcalId=ev.id;return true;}
@@ -1313,7 +1330,9 @@ async function gcalPushOne(it){
 async function gcalExport(sinceTs){
   setGcalStatus('내보내는 중…','busy');
   const since=(typeof sinceTs==='number')?sinceTs:0;
-  const targets=state.items.filter(it=>it.type==='event'&&(!it.gcalId||(it.updated||0)>since));
+  const g=gcalCfg();
+  // 다른 캘린더(공유·공휴일 등)에서 가져온 항목은 읽기 전용일 수 있어 되돌려 보내지 않음. 앱에서 만든 것·기본 캘린더 항목만 내보냄.
+  const targets=state.items.filter(it=>it.type==='event'&&(!it.calId||it.calId===g.calendarId)&&(!it.gcalId||(it.updated||0)>since));
   let ok=0,fail=0;
   for(const it of targets){try{if(await gcalPushOne(it))ok++;else fail++;}catch(e){fail++;}}
   saveLocal();setGcalStatus('연결됨 ✓','ok');
@@ -1331,14 +1350,16 @@ async function gcalSync(){
   if(!gcalReady()){toast('먼저 구글 계정을 연결하세요');return;}
   const before=gcalCfg().lastSync||0;
   const imp=await gcalImport();if(!imp)return;
+  if(imp.noPerm)return; // 권한 안내 토스트는 이미 표시됨
   const exp=await gcalExport(before);
   state.settings.gcal.lastSync=Date.now();saveLocal();
   setGcalStatus('연결됨 ✓','ok');
-  toast('동기화 완료 · 받음 '+imp.added+'개 · 보냄 '+(exp?exp.ok:0)+'개');
+  toast('동기화 완료 · 캘린더 '+(imp.calN||0)+'개 · 받음 '+imp.added+'개 · 보냄 '+(exp?exp.ok:0)+'개');
 }
-async function gcalDeleteRemote(gcalId){
+async function gcalDeleteRemote(gcalId,calId){
   if(!gcalId||!gcalReady())return;
-  try{await gcalApi('/calendars/'+encodeURIComponent(gcalCfg().calendarId)+'/events/'+encodeURIComponent(gcalId),{method:'DELETE'});}catch(e){}
+  const cal=calId||gcalCfg().calendarId;
+  try{await gcalApi('/calendars/'+encodeURIComponent(cal)+'/events/'+encodeURIComponent(gcalId),{method:'DELETE'});}catch(e){}
 }
 
 /* ===== Inline quick add (제목만 + Enter) ===== */

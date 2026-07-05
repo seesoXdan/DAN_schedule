@@ -1245,8 +1245,9 @@ function init(){
   document.getElementById('syncNowBtn').onclick=async()=>{if(!syncReady()){toast('먼저 동기화를 켜고 정보를 입력하세요');return}await syncNow();toast('동기화 완료');};
   renderSyncSettings();
   if(syncReady()){pullCloud(true);}
-  setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},30000);
+  setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},10000);
   window.addEventListener('focus',()=>{if(syncReady())pullCloud(true)});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syncReady())pullCloud(true)});
 
   document.addEventListener('keydown',e=>{
     if((e.ctrlKey||e.metaKey)&&(e.key==='n'||e.key==='N')){e.preventDefault();openModal(null)}
@@ -1286,7 +1287,11 @@ function seed(){
 }
 init();
 /* PWA: 오프라인 & 홈화면 설치 */
-if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+/* 캐시로 인한 '옛 화면' 문제를 없애기 위해 서비스워커/캐시를 제거(항상 최신 로드) */
+if('serviceWorker'in navigator){
+  navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
+}
+if(window.caches&&caches.keys){caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});}
 </script>
 </body>
 </html>

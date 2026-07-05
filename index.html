@@ -774,6 +774,7 @@ function toggleDone(item,dateStr){
   }else item.done=!item.done;
   item.updated=Date.now();
 }
+const isCal=it=>it.source==='calendar'; // 캘린더/구글캘린더에서 만든 개인 일정만 캘린더에 표시
 function itemsOn(dateStr){
   return state.items.filter(it=>occursOn(it,dateStr)&&match(it)).sort(sortItems);
 }
@@ -946,7 +947,7 @@ function renderCalendar(){
       weekEl.appendChild(dn);
     });
     // multi-day range bars -> lanes
-    const ranges=state.items.filter(it=>isRange(it)&&match(it)).map(it=>{
+    const ranges=state.items.filter(it=>isRange(it)&&isCal(it)&&match(it)).map(it=>{
       let sCol=-1,eCol=-1;
       for(let col=0;col<7;col++)if(occursOn(it,week[col].ds)){if(sCol<0)sCol=col;eCol=col;}
       return {it,sCol,eCol};
@@ -967,7 +968,7 @@ function renderCalendar(){
     // single-day items stacked under bars
     const availRows=Math.max(1,MAXROWS-nLanes);
     for(let col=0;col<7;col++){
-      const items=state.items.filter(it=>!isRange(it)&&occursOn(it,week[col].ds)&&match(it)).sort(sortItems);
+      const items=state.items.filter(it=>!isRange(it)&&isCal(it)&&occursOn(it,week[col].ds)&&match(it)).sort(sortItems);
       const overflow=items.length>availRows;
       const showN=overflow?availRows-1:items.length;
       for(let k=0;k<showN;k++){
@@ -1003,7 +1004,7 @@ function renderDaySheet(){
   const rel=relLabel(daySheetDate);
   document.getElementById('daySheetTitle').textContent=fmtDate(daySheetDate)+(rel?' · '+rel:'');
   const list=document.getElementById('daySheetList');list.innerHTML='';
-  const day=itemsOn(daySheetDate);
+  const day=itemsOn(daySheetDate).filter(isCal);
   if(!day.length)list.innerHTML='<div class="sub-empty">이 날은 일정이 없어요. 아래 + 로 추가하세요.</div>';
   else day.forEach(it=>list.appendChild(taskRow(it,daySheetDate,{resched:true,onEdit:openModal})));
   renderIcons(list);
@@ -1106,9 +1107,10 @@ function renderTaskMonth(box){
 function emptyHTML(msg){return `<div class="empty"><svg data-l="inbox"></svg><p>${msg}</p></div>`}
 
 /* ===== Modal ===== */
-let editId=null,pickedTag='blue',pickedType='event';
+let editId=null,pickedTag='blue',pickedType='event',modalFromCalendar=false;
 function openModal(item,presetType){
   editId=item?item.id:null;
+  modalFromCalendar=!item&&activeView==='calendar';
   pickedType=item?(item.type||'event'):(presetType||'event');
   document.getElementById('modalTitle').textContent=item?(pickedType==='event'?'일정 편집':'할 일 편집'):(pickedType==='event'?'새 일정':'새 할 일');
   document.getElementById('fTitle').placeholder=pickedType==='event'?'어떤 일정인가요?':'무엇을 할까요?';
@@ -1142,7 +1144,7 @@ function saveModal(){
     const it=state.items.find(x=>x.id===editId);
     Object.assign(it,{title,type:pickedType,date:start,endDate,time,repeat,tag:pickedTag,updated:Date.now()});
   }else{
-    state.items.push({id:uid(),title,type:pickedType,date:start,endDate,time,repeat,tag:pickedTag,done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:Date.now()});
+    state.items.push({id:uid(),title,type:pickedType,date:start,endDate,time,repeat,tag:pickedTag,source:modalFromCalendar?'calendar':'other',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:Date.now()});
   }
   save();closeModal();refresh();toast(editId?'수정됨':(pickedType==='event'?'일정 추가됨':'할 일 추가됨'));scheduleNotifs();
 }
@@ -1293,7 +1295,7 @@ async function gcalImport(){
     const f=gEventToFields(ev);if(!f)return;
     const ts=Date.parse(ev.updated)||Date.now();
     if(existing){Object.assign(existing,f,{gcalId:ev.id,updated:ts});updated++;}
-    else{state.items.push(Object.assign({id:uid(),gcalId:ev.id,tag:'blue',repeat:'none',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:ts},f));added++;}
+    else{state.items.push(Object.assign({id:uid(),gcalId:ev.id,tag:'blue',repeat:'none',source:'calendar',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:ts},f));added++;}
   });
   saveLocal();refresh();setGcalStatus('연결됨 ✓','ok');
   return {added,updated};
@@ -1343,7 +1345,7 @@ async function gcalDeleteRemote(gcalId){
 function quickAddItem(type,title,dateStr){
   title=title.trim();if(!title)return false;
   const d=dateStr||(activeView==='calendar'?calSel:today());
-  state.items.push({id:uid(),title,type,date:d,endDate:'',time:'',repeat:'none',tag:'blue',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:Date.now()});
+  state.items.push({id:uid(),title,type,date:d,endDate:'',time:'',repeat:'none',tag:'blue',source:activeView==='calendar'?'calendar':'other',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:Date.now()});
   save();refresh();return true;
 }
 /* quick-add row bound to a specific date (used in Tasks day/week/month) */

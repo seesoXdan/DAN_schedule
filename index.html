@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="DAN 일정">
 <link rel="manifest" href="manifest.json">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <title>DAN · 대식 일정</title>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
@@ -254,8 +255,13 @@ main{flex:1;padding-top:6px}
 .set-btn{border:none;background:var(--bg-soft);color:var(--accent);font-size:14px;font-weight:700;padding:9px 15px;border-radius:10px;cursor:pointer;font-family:inherit;transition:background var(--dur)}
 .set-btn:hover{background:var(--bg-soft2)}
 .set-btn.danger{color:var(--red)}
-#syncFields{padding:4px 16px 16px;display:none}
-#syncFields.on{display:block}
+#syncFields,#gcalFields{padding:4px 16px 16px;display:none}
+#syncFields.on,#gcalFields.on{display:block}
+.sync-actions{margin-bottom:0}
+.sync-actions+.sync-actions{margin-top:8px}
+.gcal-status.ok{color:var(--green)}
+.gcal-status.err{color:var(--red)}
+.gcal-status.busy{color:var(--accent)}
 .sync-field{margin-bottom:11px}
 .sync-field label{display:block;font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:6px}
 .sync-field label .hint{font-weight:500;color:var(--text-3)}
@@ -530,9 +536,23 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
           <div class="set-group">
             <div class="set-row">
               <div class="set-ico" style="background:var(--green)"><svg data-l="calendar"></svg></div>
-              <div class="set-txt"><div class="t">Google Calendar</div><div class="s">추후 연동 예정</div></div>
-              <button class="set-btn" id="btnGcal">연결</button>
+              <div class="set-txt"><div class="t">Google Calendar</div><div class="s" id="gcalStatus">꺼짐 — 아래에서 연결하세요</div></div>
+              <div class="switch" id="swGcal"></div>
             </div>
+            <div id="gcalFields">
+              <div class="sync-field"><label>OAuth 클라이언트 ID <span class="hint">(구글 클라우드 콘솔)</span></label><input id="gcalClientId" placeholder="예: 1234...apps.googleusercontent.com" autocomplete="off" spellcheck="false"></div>
+              <div class="sync-actions">
+                <button class="set-btn" id="gcalConnectBtn">구글 계정 연결</button>
+                <button class="set-btn" id="gcalSyncBtn">지금 동기화</button>
+              </div>
+              <div class="sync-actions">
+                <button class="set-btn" id="gcalImportBtn">가져오기 ↓</button>
+                <button class="set-btn" id="gcalExportBtn">내보내기 ↑</button>
+              </div>
+              <p class="sync-note">구글 캘린더와 일정(시간 있는 항목)을 양방향으로 맞춥니다. 클라이언트 ID 발급법은 <b>구글캘린더설정.md</b> 참고.</p>
+            </div>
+          </div>
+          <div class="set-group">
             <div class="set-row">
               <div class="set-ico" style="background:var(--text-2)"><svg data-l="download"></svg></div>
               <div class="set-txt"><div class="t">데이터 내보내기</div><div class="s">JSON 백업 파일</div></div>
@@ -660,11 +680,13 @@ const TAGS=[
   {id:'red',c:'#ff3b30',name:'중요'}
 ];
 const SYNC_DEFAULT={enabled:false,project:'',key:'',code:''};
-let state={items:[],tombstones:[],settings:{dark:false,auto:true,notif:false,sync:Object.assign({},SYNC_DEFAULT)}};
+const GCAL_DEFAULT={enabled:false,clientId:'',calendarId:'primary',lastSync:0};
+let state={items:[],tombstones:[],settings:{dark:false,auto:true,notif:false,sync:Object.assign({},SYNC_DEFAULT),gcal:Object.assign({},GCAL_DEFAULT)}};
 function loadState(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r){state=Object.assign(state,r);
   state.tombstones=r.tombstones||[];
   state.settings=Object.assign({dark:false,auto:true,notif:false},r.settings);
-  state.settings.sync=Object.assign({},SYNC_DEFAULT,r.settings&&r.settings.sync);}}catch(e){}}
+  state.settings.sync=Object.assign({},SYNC_DEFAULT,r.settings&&r.settings.sync);
+  state.settings.gcal=Object.assign({},GCAL_DEFAULT,r.settings&&r.settings.gcal);}}catch(e){}}
 function saveLocal(){localStorage.setItem(KEY,JSON.stringify(state))}
 function save(){saveLocal();schedulePush();}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -1047,6 +1069,8 @@ function saveModal(){
   save();closeModal();refresh();toast(editId?'수정됨':(pickedType==='event'?'일정 추가됨':'할 일 추가됨'));scheduleNotifs();
 }
 function delItem(id){
+  const gone=state.items.find(x=>x.id===id);
+  if(gone&&gone.gcalId&&gcalReady())gcalDeleteRemote(gone.gcalId);
   state.items=state.items.filter(x=>x.id!==id);
   state.tombstones=(state.tombstones||[]).filter(t=>t.id!==id);
   state.tombstones.push({id,updated:Date.now()});
@@ -1102,6 +1126,140 @@ function mergeBoards(li,lt,ri,rt){
   return {items,tomb};
 }
 async function syncNow(){await pullCloud();await pushCloud();}
+
+/* ===== Google Calendar 연동 (OAuth + Calendar REST) ===== */
+let gcalTokenClient=null, gcalToken='', gcalTokenExp=0;
+const GCAL_TZ=(function(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){return 'Asia/Seoul'}})();
+function gcalCfg(){return (state.settings&&state.settings.gcal)||GCAL_DEFAULT}
+function gcalReady(){return !!(gcalCfg().enabled&&gcalCfg().clientId)}
+function setGcalStatus(txt,cls){const el=document.getElementById('gcalStatus');if(el){el.textContent=txt;el.className='gcal-status '+(cls||'')}}
+function gcalInitClient(){
+  if(!(window.google&&google.accounts&&google.accounts.oauth2)){toast('구글 로그인 모듈 로딩 중… 잠시 후 다시 시도');return null;}
+  const g=gcalCfg();
+  if(!g.clientId){toast('먼저 OAuth 클라이언트 ID를 입력하세요');return null;}
+  gcalTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:g.clientId,
+    scope:'https://www.googleapis.com/auth/calendar.events',
+    callback:()=>{}
+  });
+  gcalTokenClient._cid=g.clientId;
+  return gcalTokenClient;
+}
+function gcalRequestToken(prompt){
+  return new Promise((resolve,reject)=>{
+    let client=gcalTokenClient;
+    if(!client||client._cid!==gcalCfg().clientId)client=gcalInitClient();
+    if(!client){reject(new Error('클라이언트 초기화 실패'));return;}
+    client.callback=(resp)=>{
+      if(resp&&resp.access_token){gcalToken=resp.access_token;gcalTokenExp=Date.now()+((resp.expires_in||3600)*1000);resolve(gcalToken);}
+      else reject(new Error((resp&&resp.error)||'인증 실패'));
+    };
+    client.error_callback=(err)=>reject(new Error((err&&err.type)||'인증 오류'));
+    try{client.requestAccessToken({prompt:prompt});}catch(e){reject(e);}
+  });
+}
+async function gcalGetToken(forceConsent){
+  if(!forceConsent&&gcalToken&&Date.now()<gcalTokenExp-60000)return gcalToken;
+  return gcalRequestToken(forceConsent?'consent':'');
+}
+async function gcalApi(path,opts){
+  const tok=await gcalGetToken();
+  return fetch('https://www.googleapis.com/calendar/v3'+path,Object.assign({},opts,{
+    headers:Object.assign({'Authorization':'Bearer '+tok,'Content-Type':'application/json'},(opts&&opts.headers)||{})
+  }));
+}
+/* 항목 → 구글 이벤트 본문 */
+function itemToGEvent(it){
+  const body={summary:it.title||'(제목 없음)'};
+  const start=it.date, end=it.endDate||it.date;
+  if(it.time){
+    const s=start+'T'+it.time+':00';
+    const dt=parseD(start);const[hh,mm]=it.time.split(':').map(Number);dt.setHours(hh+1,mm,0,0);
+    const e=ymd(dt)+'T'+pad(dt.getHours())+':'+pad(dt.getMinutes())+':00';
+    body.start={dateTime:s,timeZone:GCAL_TZ};
+    body.end={dateTime:e,timeZone:GCAL_TZ};
+  }else{
+    body.start={date:start};
+    body.end={date:addDays(end,1)}; // 구글 종일 이벤트 종료는 배타적(+1일)
+  }
+  return body;
+}
+/* 구글 이벤트 → 항목 필드(태그·반복은 건드리지 않음) */
+function gEventToFields(ev){
+  const f={title:ev.summary||'(제목 없음)',type:'event'};
+  if(ev.start&&ev.start.date){
+    f.time='';f.date=ev.start.date;
+    const end=(ev.end&&ev.end.date)?addDays(ev.end.date,-1):ev.start.date;
+    f.endDate=(end&&end!==f.date)?end:'';
+  }else if(ev.start&&ev.start.dateTime){
+    const d=new Date(ev.start.dateTime);
+    f.date=ymd(d);f.time=pad(d.getHours())+':'+pad(d.getMinutes());f.endDate='';
+  }else return null;
+  return f;
+}
+async function gcalImport(){
+  setGcalStatus('가져오는 중…','busy');
+  const g=gcalCfg();
+  const tMin=new Date();tMin.setDate(tMin.getDate()-30);
+  const tMax=new Date();tMax.setDate(tMax.getDate()+365);
+  const q='?singleEvents=true&orderBy=startTime&maxResults=2500&timeMin='+encodeURIComponent(tMin.toISOString())+'&timeMax='+encodeURIComponent(tMax.toISOString());
+  let r;
+  try{r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events'+q);}
+  catch(e){setGcalStatus('오류','err');toast('가져오기 실패: '+(e.message||e));return null;}
+  if(!r.ok){setGcalStatus('오류 ('+r.status+')','err');toast('가져오기 실패 ('+r.status+')');return null;}
+  const data=await r.json();const evs=data.items||[];
+  let added=0,updated=0;
+  evs.forEach(ev=>{
+    const existing=state.items.find(x=>x.gcalId===ev.id);
+    if(ev.status==='cancelled'){if(existing)delItem(existing.id);return;}
+    const f=gEventToFields(ev);if(!f)return;
+    const ts=Date.parse(ev.updated)||Date.now();
+    if(existing){Object.assign(existing,f,{gcalId:ev.id,updated:ts});updated++;}
+    else{state.items.push(Object.assign({id:uid(),gcalId:ev.id,tag:'blue',repeat:'none',done:false,doneDates:[],order:state.items.length,created:Date.now(),updated:ts},f));added++;}
+  });
+  saveLocal();refresh();setGcalStatus('연결됨 ✓','ok');
+  return {added,updated};
+}
+async function gcalPushOne(it){
+  const g=gcalCfg(),body=itemToGEvent(it);
+  let r;
+  if(it.gcalId){
+    r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events/'+encodeURIComponent(it.gcalId),{method:'PATCH',body:JSON.stringify(body)});
+    if(r.status===404||r.status===410)r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events',{method:'POST',body:JSON.stringify(body)});
+  }else r=await gcalApi('/calendars/'+encodeURIComponent(g.calendarId)+'/events',{method:'POST',body:JSON.stringify(body)});
+  if(r.ok){const ev=await r.json();if(ev&&ev.id)it.gcalId=ev.id;return true;}
+  return false;
+}
+async function gcalExport(sinceTs){
+  setGcalStatus('내보내는 중…','busy');
+  const since=(typeof sinceTs==='number')?sinceTs:0;
+  const targets=state.items.filter(it=>it.type==='event'&&(!it.gcalId||(it.updated||0)>since));
+  let ok=0,fail=0;
+  for(const it of targets){try{if(await gcalPushOne(it))ok++;else fail++;}catch(e){fail++;}}
+  saveLocal();setGcalStatus('연결됨 ✓','ok');
+  return {ok,fail};
+}
+async function gcalConnect(){
+  const inp=document.getElementById('gcalClientId');
+  if(inp)state.settings.gcal.clientId=inp.value.trim();
+  if(!state.settings.gcal.clientId){toast('OAuth 클라이언트 ID를 입력하세요');return false;}
+  saveLocal();setGcalStatus('연결 중…','busy');
+  try{await gcalGetToken(true);setGcalStatus('연결됨 ✓','ok');toast('구글 계정 연결됨');return true;}
+  catch(e){setGcalStatus('연결 실패','err');toast('연결 실패: '+(e.message||e));return false;}
+}
+async function gcalSync(){
+  if(!gcalReady()){toast('먼저 구글 계정을 연결하세요');return;}
+  const before=gcalCfg().lastSync||0;
+  const imp=await gcalImport();if(!imp)return;
+  const exp=await gcalExport(before);
+  state.settings.gcal.lastSync=Date.now();saveLocal();
+  setGcalStatus('연결됨 ✓','ok');
+  toast('동기화 완료 · 받음 '+imp.added+'개 · 보냄 '+(exp?exp.ok:0)+'개');
+}
+async function gcalDeleteRemote(gcalId){
+  if(!gcalId||!gcalReady())return;
+  try{await gcalApi('/calendars/'+encodeURIComponent(gcalCfg().calendarId)+'/events/'+encodeURIComponent(gcalId),{method:'DELETE'});}catch(e){}
+}
 
 /* ===== Inline quick add (제목만 + Enter) ===== */
 function quickAddItem(type,title,dateStr){
@@ -1228,7 +1386,26 @@ function init(){
     if(state.settings.notif){state.settings.notif=false;save();applyTheme();toast('알림 끔')}
     else{const ok=await enableNotif();applyTheme();if(ok)toast('알림 켜짐')}
   };
-  document.getElementById('btnGcal').onclick=()=>toast('Google Calendar 연동은 준비 중이에요');
+  // ----- Google Calendar 연동 UI -----
+  const gClientId=document.getElementById('gcalClientId');
+  gClientId.addEventListener('input',()=>{state.settings.gcal.clientId=gClientId.value.trim();saveLocal();});
+  document.getElementById('swGcal').onclick=()=>{
+    state.settings.gcal.enabled=!state.settings.gcal.enabled;saveLocal();renderGcalSettings();
+    if(state.settings.gcal.enabled&&!state.settings.gcal.clientId)toast('OAuth 클라이언트 ID를 입력한 뒤 연결하세요');
+  };
+  document.getElementById('gcalConnectBtn').onclick=gcalConnect;
+  document.getElementById('gcalSyncBtn').onclick=async()=>{await gcalSync();refresh();};
+  document.getElementById('gcalImportBtn').onclick=async()=>{
+    if(!gcalReady()){toast('먼저 구글 계정을 연결하세요');return}
+    const imp=await gcalImport();if(imp)toast('가져오기 완료 · 새로 '+imp.added+'개 · 갱신 '+imp.updated+'개');
+  };
+  document.getElementById('gcalExportBtn').onclick=async()=>{
+    if(!gcalReady()){toast('먼저 구글 계정을 연결하세요');return}
+    const exp=await gcalExport(0);state.settings.gcal.lastSync=Date.now();saveLocal();
+    if(exp)toast('내보내기 완료 · '+exp.ok+'개'+(exp.fail?(' · 실패 '+exp.fail):''));
+  };
+  renderGcalSettings();
+
   document.getElementById('btnExport').onclick=exportData;
   document.getElementById('btnReset').onclick=()=>{if(confirm('모든 일정을 삭제할까요?')){state.items.forEach(it=>state.tombstones.push({id:it.id,updated:Date.now()}));state.items=[];save();refresh();toast('초기화됨')}};
 
@@ -1273,6 +1450,17 @@ function renderSyncSettings(){
   if(c&&document.activeElement!==c)c.value=s.code||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('정보 입력 필요','busy');
+}
+function renderGcalSettings(){
+  const g=state.settings.gcal||GCAL_DEFAULT;
+  document.getElementById('swGcal').classList.toggle('on',!!g.enabled);
+  document.getElementById('gcalFields').classList.toggle('on',!!g.enabled);
+  const c=document.getElementById('gcalClientId');
+  if(c&&document.activeElement!==c)c.value=g.clientId||'';
+  if(!g.enabled)setGcalStatus('꺼짐','');
+  else if(!g.clientId)setGcalStatus('클라이언트 ID 입력 필요','busy');
+  else if(gcalToken&&Date.now()<gcalTokenExp)setGcalStatus('연결됨 ✓','ok');
+  else setGcalStatus('연결 필요 — [구글 계정 연결]','busy');
 }
 function exportData(){
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});

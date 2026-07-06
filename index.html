@@ -1002,7 +1002,8 @@ function reorder(fromId,toId,dateStr){
 }
 
 /* ===== Renders ===== */
-function refresh(){renderToday();renderCalendar();renderTasks();if(daySheetDate)renderDaySheet();if(typeof activeView!=='undefined'&&activeView==='checklist')renderChecklist();renderIcons();}
+function checklistEditing(){const a=document.activeElement,b=document.getElementById('checklistBody');return !!(a&&b&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&b.contains(a));}
+function refresh(){renderToday();renderCalendar();renderTasks();if(daySheetDate)renderDaySheet();if(typeof activeView!=='undefined'&&activeView==='checklist'&&!checklistEditing())renderChecklist();renderIcons();}
 
 let todayView=today();
 function updateTodayNav(){

@@ -234,6 +234,17 @@ main{flex:1;padding-top:6px}
 .tdy-cal-cell .cd{width:4px;height:4px;border-radius:50%;background:var(--accent);position:absolute;bottom:5px}
 .tdy-cal-cell.sel .cd{background:#fff}
 .tdy-cal-cell.today .cd{background:var(--accent)}
+/* 다른 날짜로 이동 미니 달력 팝업 */
+.resched-pop{background:var(--card);width:100%;max-width:320px;border-radius:20px;
+  box-shadow:var(--shadow-lg);padding:18px;animation:fade .18s var(--ease)}
+.resched-pop .rp-title{font-size:16px;font-weight:800;text-align:center;margin-bottom:4px;letter-spacing:-.02em}
+.resched-pop .rp-sub{font-size:12.5px;color:var(--text-3);text-align:center;margin-bottom:14px}
+.resched-pop .tdy-cal-head{margin-bottom:10px}
+.resched-pop .rp-actions{display:flex;gap:10px;margin-top:16px}
+.resched-pop .rp-actions button{flex:1;padding:11px;border-radius:12px;border:none;font-family:inherit;
+  font-size:14px;font-weight:700;cursor:pointer}
+.resched-pop .rp-cancel{background:var(--bg-soft);color:var(--text)}
+.resched-pop .rp-today{background:var(--accent);color:#fff}
 /* label calendar with multi-day bars */
 .mcal{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .mcal-dow{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg-soft);border-bottom:1px solid var(--border)}
@@ -818,13 +829,14 @@ function taskRow(item,dateStr,opts={}){
   renderIcons(el);
   return el;
 }
-/* 다른 날짜로 이동 (오늘 못한 일정/할일 재조정) */
+/* 다른 날짜로 이동 (오늘 못한 일정/할일 재조정) - 미니 달력 팝업 */
 function reschedule(item){
-  const inp=document.createElement('input');inp.type='date';inp.value=item.date;
-  inp.style.cssText='position:fixed;left:-9999px;opacity:0';
-  document.body.appendChild(inp);
-  inp.onchange=()=>{
-    const nd=inp.value;
+  let cur=parseD(item.date); // 표시 중인 달
+  const ov=document.createElement('div');ov.className='overlay on';
+  const pop=document.createElement('div');pop.className='resched-pop';ov.appendChild(pop);
+  function close(){ov.remove();document.removeEventListener('keydown',onKey);}
+  function onKey(e){if(e.key==='Escape')close();}
+  function pick(nd){
     if(nd&&nd!==item.date){
       if(isRange(item)){const delta=Math.round((parseD(nd)-parseD(item.date))/86400000);item.endDate=addDays(item.endDate,delta);}
       item.date=nd;
@@ -832,9 +844,47 @@ function reschedule(item){
       item.updated=Date.now();
       save();refresh();toast('이동됨 → '+fmtDate(nd));
     }
-    setTimeout(()=>inp.remove(),0);
-  };
-  inp.click();if(inp.showPicker){try{inp.showPicker()}catch(e){}}
+    close();
+  }
+  function draw(){
+    const y=cur.getFullYear(),m=cur.getMonth(),t=today();
+    let cells='';
+    const start=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),prevDim=new Date(y,m,0).getDate();
+    DOW.forEach(d=>cells+=`<div class="tdow">${d}</div>`);
+    let map=[];
+    for(let i=0;i<42;i++){
+      let dnum,cy=y,cm=m,other=false;
+      if(i<start){dnum=prevDim-start+1+i;other=true;cm=m-1;if(cm<0){cm=11;cy--}}
+      else if(i>=start+dim){dnum=i-start-dim+1;other=true;cm=m+1;if(cm>11){cm=0;cy++}}
+      else dnum=i-start+1;
+      const ds=`${cy}-${pad(cm+1)}-${pad(dnum)}`;map.push(ds);
+      const cls='tdy-cal-cell'+(other?' other':'')+(i%7===0?' sun':'')+(ds===t?' today':'')+(ds===item.date?' sel':'');
+      const dot=itemsOn(ds).length?'<span class="cd"></span>':'';
+      cells+=`<button class="${cls}" data-ds="${ds}"><span>${dnum}</span>${dot}</button>`;
+    }
+    pop.innerHTML=`
+      <div class="rp-title">다른 날짜로 이동</div>
+      <div class="rp-sub">${esc(item.title)}</div>
+      <div class="tdy-cal-head">
+        <button class="icon-btn" data-nav="-1"><svg data-l="chevron-left"></svg></button>
+        <div class="tdy-cal-month">${y}년 ${m+1}월</div>
+        <button class="icon-btn" data-nav="1"><svg data-l="chevron-right"></svg></button>
+      </div>
+      <div class="tdy-cal-grid">${cells}</div>
+      <div class="rp-actions">
+        <button class="rp-cancel">취소</button>
+        <button class="rp-today">오늘로</button>
+      </div>`;
+    pop.querySelector('[data-nav="-1"]').onclick=()=>{cur=new Date(y,m-1,1);draw();};
+    pop.querySelector('[data-nav="1"]').onclick=()=>{cur=new Date(y,m+1,1);draw();};
+    pop.querySelectorAll('.tdy-cal-cell').forEach(b=>b.onclick=()=>pick(b.dataset.ds));
+    pop.querySelector('.rp-cancel').onclick=close;
+    pop.querySelector('.rp-today').onclick=()=>pick(today());
+    renderIcons(pop);
+  }
+  ov.onclick=e=>{if(e.target===ov)close();};
+  document.addEventListener('keydown',onKey);
+  document.body.appendChild(ov);draw();
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 

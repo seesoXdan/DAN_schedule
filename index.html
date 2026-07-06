@@ -156,6 +156,8 @@ main{flex:1;padding-top:6px}
 .task:hover{background:var(--card-hover);box-shadow:var(--shadow-md)}
 .task.dragging{opacity:.4;cursor:grabbing}
 .task.drag-over{box-shadow:0 -2px 0 var(--accent) inset}
+.week-day.drop-target{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.cal-cell.drop-target{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)}
 .task.done{background:var(--done-bg);border-color:transparent}
 .check{width:25px;height:25px;border-radius:50%;border:2px solid var(--border);flex:none;cursor:pointer;
   display:grid;place-items:center;transition:background var(--dur) var(--ease),border-color var(--dur),transform var(--dur)}
@@ -888,16 +890,39 @@ function reschedule(item){
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-/* ===== Drag reorder ===== */
-let dragId=null;
+/* ===== Drag reorder + 다른 날짜로 이동 ===== */
+let dragId=null,dragFromDate=null;
 function attachDrag(listEl,dateStr){
   listEl.querySelectorAll('.task[draggable="true"]').forEach(el=>{
-    el.addEventListener('dragstart',()=>{dragId=el.dataset.id;el.classList.add('dragging')});
-    el.addEventListener('dragend',()=>{el.classList.remove('dragging');listEl.querySelectorAll('.task').forEach(t=>t.classList.remove('drag-over'))});
+    el.addEventListener('dragstart',()=>{dragId=el.dataset.id;dragFromDate=dateStr;el.classList.add('dragging')});
+    el.addEventListener('dragend',()=>{dragFromDate=null;el.classList.remove('dragging');listEl.querySelectorAll('.task').forEach(t=>t.classList.remove('drag-over'))});
     el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over')});
     el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
-    el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');if(dragId&&dragId!==el.dataset.id)reorder(dragId,el.dataset.id,dateStr)});
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.classList.remove('drag-over');if(!dragId)return;
+      if(dragFromDate&&dragFromDate!==dateStr)moveItemToDate(dragId,dateStr);      // 다른 날 → 그 날짜로 이동
+      else if(dragId!==el.dataset.id)reorder(dragId,el.dataset.id,dateStr);         // 같은 날 → 순서 변경
+    });
   });
+}
+/* 날짜 칸(주간/월간) 위에 드롭하면 그 날짜로 이동 */
+function attachDayDrop(zoneEl,dateStr){
+  zoneEl.addEventListener('dragover',e=>{if(dragFromDate&&dragFromDate!==dateStr){e.preventDefault();zoneEl.classList.add('drop-target')}});
+  zoneEl.addEventListener('dragleave',e=>{if(!zoneEl.contains(e.relatedTarget))zoneEl.classList.remove('drop-target')});
+  zoneEl.addEventListener('drop',e=>{
+    zoneEl.classList.remove('drop-target');
+    if(dragId&&dragFromDate&&dragFromDate!==dateStr){e.preventDefault();moveItemToDate(dragId,dateStr)}
+  });
+}
+function moveItemToDate(id,ds){
+  const item=state.items.find(x=>x.id===id);
+  if(!item||item.date===ds)return;
+  if(isRange(item)){const delta=Math.round((parseD(ds)-parseD(item.date))/86400000);item.endDate=addDays(item.endDate,delta);}
+  item.date=ds;
+  if(item.repeat&&item.repeat!=='none')item.repeat='none'; // 옮기면 단발로
+  item.updated=Date.now();
+  dragId=null;dragFromDate=null;
+  save();refresh();toast('이동됨 → '+fmtDate(ds));
 }
 function reorder(fromId,toId,dateStr){
   const ids=itemsOn(dateStr).map(i=>i.id);
@@ -1110,7 +1135,7 @@ function renderTaskWeek(box){
     card.innerHTML=`<div class="week-day-head"><span class="wd">${dt.getMonth()+1}/${dt.getDate()} (${DOW[dt.getDay()]})</span>${rel?`<span class="wrel">${rel}</span>`:''}<span class="wc">${n}개</span></div>`
       +quickAddHTML(ds,'할 일 추가','sm');
     const list=document.createElement('div');list.className='task-list';
-    fillTodos(list,ds,{drag:true});card.appendChild(list);attachDrag(list,ds);
+    fillTodos(list,ds,{drag:true});card.appendChild(list);attachDrag(list,ds);attachDayDrop(card,ds);
     wrap.appendChild(card);
   }
   box.appendChild(wrap);
@@ -1142,6 +1167,7 @@ function renderTaskMonth(box){
     const n=todosOn(ds).length;
     if(n){const dots=document.createElement('div');dots.className='dots';for(let k=0;k<Math.min(n,3);k++){const dd=document.createElement('div');dd.className='d';dots.appendChild(dd)}cell.appendChild(dots)}
     cell.onclick=()=>{taskDay=ds;renderTasks();const inp=document.querySelector('#taskBody .tasks-month-detail .quick-add input');if(inp)inp.focus();};
+    attachDayDrop(cell,ds);
     grid.appendChild(cell);
   }
   box.appendChild(grid);

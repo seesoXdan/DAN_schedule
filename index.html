@@ -247,6 +247,65 @@ main{flex:1;padding-top:6px}
   font-size:14px;font-weight:700;cursor:pointer}
 .resched-pop .rp-cancel{background:var(--bg-soft);color:var(--text)}
 .resched-pop .rp-today{background:var(--accent);color:#fff}
+/* ===== 행사 체크리스트 ===== */
+.cl-add{display:flex;gap:8px;margin-bottom:16px}
+.cl-add input{flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none}
+.cl-add input:focus{border-color:var(--accent)}
+.cl-add button{flex:none;padding:0 16px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:5px}
+.cl-add button svg{width:16px;height:16px}
+.cl-add button:active{transform:scale(.97)}
+.cl-ev{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:box-shadow var(--dur) var(--ease),transform var(--dur)}
+.cl-ev:hover{box-shadow:var(--shadow-md)}
+.cl-ev:active{transform:scale(.995)}
+.cl-ev-ico{width:40px;height:40px;flex:none;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.cl-ev-ico svg{width:20px;height:20px}
+.cl-ev-body{flex:1;min-width:0}
+.cl-ev-title{font-weight:700;font-size:15.5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl-ev-sub{font-size:12.5px;color:var(--text-3);margin-top:2px}
+.cl-ev-prog{flex:none;text-align:right;font-size:12px;color:var(--text-2)}
+.cl-ev-bar{width:64px;height:5px;border-radius:99px;background:var(--bg-soft2);margin-top:5px;overflow:hidden}
+.cl-ev-bar>i{display:block;height:100%;background:var(--green);border-radius:99px}
+.cl-ev-del{flex:none;border:none;background:none;color:var(--text-3);cursor:pointer;padding:6px;border-radius:8px;opacity:0;transition:opacity var(--dur),color var(--dur)}
+.cl-ev:hover .cl-ev-del{opacity:1}
+.cl-ev-del:hover{color:var(--red);background:var(--bg-soft)}
+.cl-ev-del svg{width:16px;height:16px}
+@media(hover:none){.cl-ev-del{opacity:.55}}
+.cl-back{display:inline-flex;align-items:center;gap:4px;border:none;background:none;color:var(--text-2);font-size:13px;font-family:inherit;cursor:pointer;padding:4px 0;margin-bottom:6px}
+.cl-back svg{width:16px;height:16px}
+.cl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.cl-head .cl-name{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.cl-head .cl-date{font-size:13px;color:var(--text-3);margin-top:2px}
+.cl-summary{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.cl-sum{font-size:12px;padding:4px 11px;border-radius:99px;font-weight:600}
+.cl-sum[data-s="consult"]{background:var(--accent-soft);color:var(--accent)}
+.cl-sum[data-s="wait"]{background:rgba(255,149,0,.14);color:var(--orange)}
+.cl-sum[data-s="order"]{background:rgba(175,82,222,.14);color:var(--purple)}
+.cl-sum[data-s="done"]{background:var(--done-bg);color:var(--green)}
+.cl-list{border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto}
+.cl-thead,.cl-row{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(4,38px) 58px 108px 108px 130px 26px;gap:5px;align-items:center;padding:9px 12px;min-width:760px}
+.cl-thead{font-size:11px;font-weight:700;color:var(--text-3);text-align:center;border-bottom:1px solid var(--border);background:var(--bg-soft);line-height:1.25}
+.cl-thead .cl-th-text{text-align:left}
+.cl-row{border-bottom:1px solid var(--border-2)}
+.cl-row:last-child{border-bottom:none}
+.cl-row-text{font-size:14px;word-break:break-word;line-height:1.35}
+.cl-row.s-done .cl-row-text{color:var(--text-3)}
+.cl-cell{width:100%;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);cursor:pointer;display:grid;place-items:center;font-family:inherit;transition:transform var(--dur),background var(--dur)}
+.cl-cell:active{transform:scale(.9)}
+.cl-cell svg{width:16px;height:16px;color:#fff}
+.cl-cell.on[data-s="consult"]{background:var(--accent);border-color:var(--accent)}
+.cl-cell.on[data-s="wait"]{background:var(--orange);border-color:var(--orange)}
+.cl-cell.on[data-s="order"]{background:var(--purple);border-color:var(--purple)}
+.cl-cell.on[data-s="done"]{background:var(--green);border-color:var(--green)}
+.cl-dcell{font-size:12px;text-align:center;color:var(--text-3);border:none;background:none;font-family:inherit;padding:0;white-space:nowrap;cursor:pointer}
+.cl-dcell.has{color:var(--text);font-weight:600}
+.cl-tin{width:100%;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;padding:0 8px;outline:none}
+.cl-tin:focus{border-color:var(--accent)}
+.cl-tin::placeholder{color:var(--text-3)}
+.cl-row-del{border:none;background:none;color:var(--text-3);cursor:pointer;padding:4px;border-radius:8px;display:grid;place-items:center}
+.cl-row-del:hover{color:var(--red);background:var(--bg-soft)}
+.cl-row-del svg{width:15px;height:15px}
+.cl-empty{text-align:center;color:var(--text-3);font-size:14px;padding:40px 0}
+.cl-tip{font-size:12px;color:var(--text-3);margin-top:12px;line-height:1.6}
 /* label calendar with multi-day bars */
 .mcal{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .mcal-dow{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg-soft);border-bottom:1px solid var(--border)}
@@ -447,10 +506,11 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item on" data-view="today"><svg data-l="sun"></svg>오늘꼭꼭!</button>
       <button class="side-item" data-view="tasks"><svg data-l="list"></svg>전체꼭꼭!</button>
       <button class="side-item" data-view="calendar"><svg data-l="calendar"></svg>캘린더(일정)</button>
+      <button class="side-item" data-view="checklist"><svg data-l="clipboard"></svg>행사 체크리스트</button>
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot">v1.3 · 로컬 저장</div>
+    <div class="side-foot">v1.4 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -533,6 +593,11 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
           </div>
           <div class="mcal" id="calGrid"></div>
           <p class="cal-tip">날짜를 누르면 그 날의 일정을 볼 수 있어요</p>
+        </section>
+
+        <!-- CHECKLIST (행사별 체크리스트) -->
+        <section class="view" id="view-checklist">
+          <div id="checklistBody"></div>
         </section>
 
         <!-- TASKS -->
@@ -688,6 +753,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
     <button class="nav-item on" data-view="today"><svg data-l="sun"></svg>오늘꼭꼭!</button>
     <button class="nav-item" data-view="tasks"><svg data-l="list"></svg>전체꼭꼭!</button>
     <button class="nav-item" data-view="calendar"><svg data-l="calendar"></svg>캘린더</button>
+    <button class="nav-item" data-view="checklist"><svg data-l="clipboard"></svg>행사</button>
     <button class="nav-item" data-view="settings"><svg data-l="settings"></svg>설정</button>
   </div>
 </nav>
@@ -718,6 +784,8 @@ const ICONS={
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1z"/>',
   cloud:'<path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.8A6 6 0 1 0 6 15.9"/><path d="M6 16h11.5"/>',
+  clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="m9 14 2 2 4-4"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
 };
 function renderIcons(root=document){
   root.querySelectorAll('svg[data-l]').forEach(s=>{
@@ -737,9 +805,10 @@ const TAGS=[
 ];
 const SYNC_DEFAULT={enabled:false,project:'',key:'',code:''};
 const GCAL_DEFAULT={enabled:false,clientId:'',calendarId:'primary',lastSync:0};
-let state={items:[],tombstones:[],settings:{dark:false,auto:true,notif:false,sync:Object.assign({},SYNC_DEFAULT),gcal:Object.assign({},GCAL_DEFAULT)}};
+let state={items:[],tombstones:[],events:[],etomb:[],settings:{dark:false,auto:true,notif:false,sync:Object.assign({},SYNC_DEFAULT),gcal:Object.assign({},GCAL_DEFAULT)}};
 function loadState(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r){state=Object.assign(state,r);
   state.tombstones=r.tombstones||[];
+  state.events=r.events||[];state.etomb=r.etomb||[];
   state.settings=Object.assign({dark:false,auto:true,notif:false},r.settings);
   state.settings.sync=Object.assign({},SYNC_DEFAULT,r.settings&&r.settings.sync);
   state.settings.gcal=Object.assign({},GCAL_DEFAULT,r.settings&&r.settings.gcal);}}catch(e){}}
@@ -933,7 +1002,7 @@ function reorder(fromId,toId,dateStr){
 }
 
 /* ===== Renders ===== */
-function refresh(){renderToday();renderCalendar();renderTasks();if(daySheetDate)renderDaySheet();renderIcons();}
+function refresh(){renderToday();renderCalendar();renderTasks();if(daySheetDate)renderDaySheet();if(typeof activeView!=='undefined'&&activeView==='checklist')renderChecklist();renderIcons();}
 
 let todayView=today();
 function updateTodayNav(){
@@ -1182,6 +1251,195 @@ function renderTaskMonth(box){
 }
 function emptyHTML(msg){return `<div class="empty"><svg data-l="inbox"></svg><p>${msg}</p></div>`}
 
+/* ===== 행사 체크리스트 ===== */
+const CL_STAGES=[{k:'consult',name:'상담'},{k:'wait',name:'대기'},{k:'order',name:'주문'},{k:'done',name:'완료'}];
+let checklistSel=null; // 선택된 행사 id (null이면 목록 화면)
+function findEvent(id){return (state.events||[]).find(e=>e.id===id)}
+function normItem(it){
+  if(!it.stages||typeof it.stages!=='object'){
+    it.stages={consult:false,wait:false,order:false,done:false};
+    if(it.status&&it.stages.hasOwnProperty(it.status))it.stages[it.status]=true;
+  }
+  CL_STAGES.forEach(s=>{if(typeof it.stages[s.k]!=='boolean')it.stages[s.k]=false});
+  if(typeof it.expDate!=='string')it.expDate=(typeof it.doneDate==='string')?it.doneDate:'';
+  if(typeof it.vendor!=='string')it.vendor='';
+  if(typeof it.contact!=='string')it.contact='';
+  if(typeof it.note!=='string')it.note='';
+  delete it.doneDate;delete it.status;
+  return it;
+}
+function normEvents(){(state.events||[]).forEach(ev=>{(ev.items||[]).forEach(normItem)})}
+const fmtMD=s=>{if(!s)return'';const dt=parseD(s);return `${dt.getMonth()+1}/${dt.getDate()}`};
+function renderChecklist(){
+  const box=document.getElementById('checklistBody');if(!box)return;
+  normEvents();
+  const ev=checklistSel?findEvent(checklistSel):null;
+  if(ev)renderChecklistDetail(box,ev);else renderChecklistList(box);
+  renderIcons(box);
+}
+function renderChecklistList(box){
+  box.innerHTML='';
+  const add=document.createElement('div');add.className='cl-add';
+  add.innerHTML=`<input type="text" id="clNewEv" placeholder="행사 이름 입력 후 추가 (예: 세종컨벤션 부스)"><button id="clAddEv"><svg data-l="plus"></svg>추가</button>`;
+  box.appendChild(add);
+  const events=(state.events||[]).slice().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.created||0)-(b.created||0));
+  if(!events.length){
+    const e=document.createElement('div');e.className='cl-empty';e.textContent='아직 행사가 없어요. 위에 이름을 적어 추가하세요.';box.appendChild(e);
+  }else{
+    events.forEach(ev=>{
+      const items=ev.items||[],done=items.filter(i=>i.stages&&i.stages.done).length,pct=items.length?Math.round(done/items.length*100):0;
+      const row=document.createElement('div');row.className='cl-ev';
+      row.innerHTML=`
+        <div class="cl-ev-ico"><svg data-l="clipboard"></svg></div>
+        <div class="cl-ev-body">
+          <div class="cl-ev-title">${esc(ev.name)}</div>
+          <div class="cl-ev-sub">${ev.date?esc(fmtDate(ev.date)):'날짜 미정'} · 항목 ${items.length}개</div>
+        </div>
+        <div class="cl-ev-prog">${done}/${items.length}<div class="cl-ev-bar"><i style="width:${pct}%"></i></div></div>
+        <button class="cl-ev-del" title="행사 삭제"><svg data-l="trash"></svg></button>`;
+      row.onclick=()=>{checklistSel=ev.id;renderChecklist();window.scrollTo({top:0,behavior:'smooth'})};
+      row.querySelector('.cl-ev-del').onclick=e=>{e.stopPropagation();delEvent(ev.id)};
+      box.appendChild(row);
+    });
+  }
+  const inp=add.querySelector('#clNewEv');
+  const doAdd=()=>{const v=inp.value.trim();if(!v)return;addEvent(v);};
+  add.querySelector('#clAddEv').onclick=doAdd;
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd()});
+}
+function renderChecklistDetail(box,ev){
+  box.innerHTML='';
+  const items=ev.items||[],counts={consult:0,wait:0,order:0,done:0};
+  items.forEach(i=>{CL_STAGES.forEach(s=>{if(i.stages&&i.stages[s.k])counts[s.k]++})});
+  const head=document.createElement('div');
+  head.innerHTML=`
+    <button class="cl-back" id="clBack"><svg data-l="chevron-left"></svg>행사 목록</button>
+    <div class="cl-head">
+      <div style="min-width:0">
+        <div class="cl-name">${esc(ev.name)}</div>
+        <div class="cl-date"><input type="date" id="clEvDate" value="${ev.date||''}" style="border:none;background:none;color:var(--text-3);font-family:inherit;font-size:13px;padding:0"></div>
+      </div>
+      <button class="cl-ev-del" id="clDelEv" style="opacity:1" title="행사 삭제"><svg data-l="trash"></svg></button>
+    </div>
+    <div class="cl-summary">${CL_STAGES.map(s=>`<span class="cl-sum" data-s="${s.k}">${s.name} ${counts[s.k]||0}</span>`).join('')}</div>
+    <div class="cl-add">
+      <input type="text" id="clNewItem" placeholder="항목 입력 후 추가 (예: 현수막 시안 확인)">
+      <button id="clAddItem"><svg data-l="plus"></svg>추가</button>
+    </div>`;
+  box.appendChild(head);
+  const list=document.createElement('div');list.className='cl-list';
+  if(!items.length){
+    const e=document.createElement('div');e.className='cl-empty';e.textContent='항목을 추가해 단계를 체크하세요.';list.appendChild(e);
+  }else{
+    const thead=document.createElement('div');thead.className='cl-thead';
+    thead.innerHTML=`<span class="cl-th-text">항목</span>${CL_STAGES.map(s=>`<span>${s.name}</span>`).join('')}<span>완료<br>예상날짜</span><span>거래처 상호</span><span>연락처</span><span>비고</span><span></span>`;
+    list.appendChild(thead);
+    items.forEach(it=>{
+      const row=document.createElement('div');row.className='cl-row'+(it.stages.done?' s-done':'');
+      const cells=CL_STAGES.map(s=>`<button class="cl-cell${it.stages[s.k]?' on':''}" data-s="${s.k}" title="${s.name}">${it.stages[s.k]?'<svg data-l="check"></svg>':''}</button>`).join('');
+      const dcell=`<button class="cl-dcell${it.expDate?' has':''}" title="완료예상날짜 설정">${it.expDate?fmtMD(it.expDate):'설정'}</button>`;
+      row.innerHTML=`<span class="cl-row-text">${esc(it.text)}</span>${cells}${dcell}`
+        +`<input class="cl-tin" data-f="vendor" value="${esc(it.vendor)}" placeholder="상호" title="거래처 상호">`
+        +`<input class="cl-tin" data-f="contact" value="${esc(it.contact)}" placeholder="연락처" title="연락처">`
+        +`<input class="cl-tin" data-f="note" value="${esc(it.note)}" placeholder="비고" title="비고">`
+        +`<button class="cl-row-del" title="삭제"><svg data-l="x"></svg></button>`;
+      row.querySelectorAll('.cl-cell').forEach(c=>c.onclick=()=>toggleStage(ev.id,it.id,c.dataset.s));
+      row.querySelector('.cl-dcell').onclick=()=>openMiniCal(it.expDate||today(),nd=>{const t=findEvent(ev.id);const i=(t.items||[]).find(x=>x.id===it.id);if(i){i.expDate=nd;t.updated=now();save();renderChecklist();renderIcons();}},{title:'완료예상날짜',sub:it.text});
+      row.querySelectorAll('.cl-tin').forEach(inp=>inp.onchange=()=>updateItemField(ev.id,it.id,inp.dataset.f,inp.value));
+      row.querySelector('.cl-row-del').onclick=()=>delItemChk(ev.id,it.id);
+      list.appendChild(row);
+    });
+  }
+  box.appendChild(list);
+  const tip=document.createElement('div');tip.className='cl-tip';tip.innerHTML='각 칸을 누르면 색이 켜지며 완료 표시돼요. <b>완료예상날짜</b>는 눌러서 달력으로, <b>거래처 상호·연락처·비고</b>는 칸에 바로 입력할 수 있어요. 표가 넓으면 옆으로 밀어서 보세요.';box.appendChild(tip);
+  head.querySelector('#clBack').onclick=()=>{checklistSel=null;renderChecklist();renderIcons()};
+  head.querySelector('#clDelEv').onclick=()=>delEvent(ev.id);
+  head.querySelector('#clEvDate').onchange=e=>{ev.date=e.target.value;ev.updated=now();save();renderChecklist();renderIcons()};
+  const ni=head.querySelector('#clNewItem');
+  const addIt=()=>{const v=ni.value.trim();if(!v)return;addItemChk(ev.id,v);};
+  head.querySelector('#clAddItem').onclick=addIt;
+  ni.addEventListener('keydown',e=>{if(e.key==='Enter')addIt()});
+}
+function addEvent(name){
+  state.events=state.events||[];
+  state.events.push({id:uid(),name,date:'',items:[],created:now(),updated:now()});
+  save();renderChecklist();renderIcons();toast('행사 추가됨');
+}
+function delEvent(id){
+  const ev=findEvent(id);if(!ev)return;
+  if(!confirm('이 행사를 삭제할까요? 항목도 함께 삭제됩니다.'))return;
+  state.events=(state.events||[]).filter(e=>e.id!==id);
+  state.etomb=state.etomb||[];state.etomb.push({id,updated:now()});
+  if(checklistSel===id)checklistSel=null;
+  save();renderChecklist();renderIcons();toast('행사 삭제됨');
+}
+function addItemChk(evId,text){
+  const ev=findEvent(evId);if(!ev)return;
+  ev.items=ev.items||[];ev.items.push({id:uid(),text,stages:{consult:false,wait:false,order:false,done:false},expDate:'',vendor:'',contact:'',note:''});
+  ev.updated=now();save();renderChecklist();renderIcons();
+  const ni=document.getElementById('clNewItem');if(ni)ni.focus();
+}
+function delItemChk(evId,itId){
+  const ev=findEvent(evId);if(!ev)return;
+  ev.items=(ev.items||[]).filter(i=>i.id!==itId);
+  ev.updated=now();save();renderChecklist();renderIcons();
+}
+function updateItemField(evId,itId,field,val){
+  const ev=findEvent(evId);if(!ev)return;
+  const it=(ev.items||[]).find(i=>i.id===itId);if(!it)return;
+  it[field]=val;ev.updated=now();save(); // 재렌더 안 함(입력 포커스 유지)
+}
+function toggleStage(evId,itId,k){
+  const ev=findEvent(evId);if(!ev)return;
+  const it=(ev.items||[]).find(i=>i.id===itId);if(!it)return;
+  it.stages=it.stages||{consult:false,wait:false,order:false,done:false};
+  it.stages[k]=!it.stages[k];
+  ev.updated=now();save();renderChecklist();renderIcons();
+}
+/* 완료날짜용 미니 달력 (범용) */
+function openMiniCal(initial,onPick,opts){
+  opts=opts||{};
+  let cur=parseD(initial||today());
+  const ov=document.createElement('div');ov.className='overlay on';
+  const pop=document.createElement('div');pop.className='resched-pop';ov.appendChild(pop);
+  function close(){ov.remove();document.removeEventListener('keydown',onKey);}
+  function onKey(e){if(e.key==='Escape')close();}
+  function pick(ds){onPick(ds);close();}
+  function draw(){
+    const y=cur.getFullYear(),m=cur.getMonth(),t=today();
+    const start=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),prevDim=new Date(y,m,0).getDate();
+    let cells='';DOW.forEach(d=>cells+=`<div class="tdow">${d}</div>`);
+    for(let i=0;i<42;i++){
+      let dnum,cy=y,cm=m,other=false;
+      if(i<start){dnum=prevDim-start+1+i;other=true;cm=m-1;if(cm<0){cm=11;cy--}}
+      else if(i>=start+dim){dnum=i-start-dim+1;other=true;cm=m+1;if(cm>11){cm=0;cy++}}
+      else dnum=i-start+1;
+      const ds=`${cy}-${pad(cm+1)}-${pad(dnum)}`;
+      const cls='tdy-cal-cell'+(other?' other':'')+(i%7===0?' sun':'')+(ds===t?' today':'')+(ds===initial?' sel':'');
+      cells+=`<button class="${cls}" data-ds="${ds}"><span>${dnum}</span></button>`;
+    }
+    pop.innerHTML=`
+      <div class="rp-title">${esc(opts.title||'날짜 선택')}</div>
+      ${opts.sub?`<div class="rp-sub">${esc(opts.sub)}</div>`:''}
+      <div class="tdy-cal-head">
+        <button class="icon-btn" data-nav="-1"><svg data-l="chevron-left"></svg></button>
+        <div class="tdy-cal-month">${y}년 ${m+1}월</div>
+        <button class="icon-btn" data-nav="1"><svg data-l="chevron-right"></svg></button>
+      </div>
+      <div class="tdy-cal-grid">${cells}</div>
+      <div class="rp-actions"><button class="rp-cancel">취소</button><button class="rp-today">오늘로</button></div>`;
+    pop.querySelector('[data-nav="-1"]').onclick=()=>{cur=new Date(y,m-1,1);draw();};
+    pop.querySelector('[data-nav="1"]').onclick=()=>{cur=new Date(y,m+1,1);draw();};
+    pop.querySelectorAll('.tdy-cal-cell').forEach(b=>b.onclick=()=>pick(b.dataset.ds));
+    pop.querySelector('.rp-cancel').onclick=close;
+    pop.querySelector('.rp-today').onclick=()=>pick(today());
+    renderIcons(pop);
+  }
+  ov.onclick=e=>{if(e.target===ov)close();};
+  document.addEventListener('keydown',onKey);
+  document.body.appendChild(ov);draw();
+}
+
 /* ===== Modal ===== */
 let editId=null,pickedTag='blue',pickedType='event',modalFromCalendar=false;
 function openModal(item,presetType){
@@ -1244,7 +1502,7 @@ function pruneTombstones(){const cut=Date.now()-45*86400000;state.tombstones=(st
 function fsUrl(){const s=syncCfg();return 'https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(s.project)+'/databases/(default)/documents/boards/'+encodeURIComponent(s.code)+'?key='+encodeURIComponent(s.key);}
 async function pushCloud(){
   if(!syncReady())return;pruneTombstones();
-  const payload=JSON.stringify({items:state.items,tomb:state.tombstones||[]});
+  const payload=JSON.stringify({items:state.items,tomb:state.tombstones||[],events:state.events||[],etomb:state.etomb||[]});
   const body={fields:{data:{stringValue:payload},updated_at:{integerValue:String(Date.now())}}};
   try{
     setSyncStatus('동기화 중…','busy');
@@ -1266,7 +1524,10 @@ async function pullCloud(silent){
       if(p){
         lastRemoteCount=(p.items||[]).length;
         const merged=mergeBoards(state.items,state.tombstones||[],p.items||[],p.tomb||[]);
-        state.items=merged.items;state.tombstones=merged.tomb;saveLocal();refresh();
+        state.items=merged.items;state.tombstones=merged.tomb;
+        const me=mergeBoards(state.events||[],state.etomb||[],p.events||[],p.etomb||[]);
+        state.events=me.items;state.etomb=me.tomb;
+        saveLocal();refresh();
       }
     }
     setSyncStatus('동기화됨 ✓','ok');
@@ -1518,12 +1779,13 @@ function applyTheme(){
 
 /* ===== Views ===== */
 let activeView='today';
-const titles={today:'오늘꼭꼭!',calendar:'캘린더',tasks:'전체꼭꼭!',settings:'설정'};
-const kickers={today:'TODAY',calendar:'CALENDAR · 일정',tasks:'ALL TODOS',settings:'SETTINGS'};
+const titles={today:'오늘꼭꼭!',calendar:'캘린더',tasks:'전체꼭꼭!',checklist:'행사 체크리스트',settings:'설정'};
+const kickers={today:'TODAY',calendar:'CALENDAR · 일정',tasks:'ALL TODOS',checklist:'EVENT CHECKLIST',settings:'SETTINGS'};
 function switchView(v){
   activeView=v;
   if(v==='tasks'){taskDay=today();taskMonth=new Date();renderTasks();} // 진입 시 오늘 기준
   if(v==='today'){todayView=today();closeTdyCal();renderToday();renderIcons();} // 진입 시 오늘로 리셋
+  if(v==='checklist'){renderChecklist();renderIcons();}
   document.querySelectorAll('.nav-item,.side-item').forEach(n=>n.classList.toggle('on',n.dataset.view===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   document.getElementById('greetTitle').textContent=titles[v];

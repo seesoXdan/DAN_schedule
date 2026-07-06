@@ -282,7 +282,7 @@ main{flex:1;padding-top:6px}
 .cl-sum[data-s="order"]{background:rgba(175,82,222,.14);color:var(--purple)}
 .cl-sum[data-s="done"]{background:var(--done-bg);color:var(--green)}
 .cl-list{border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto}
-.cl-thead,.cl-row{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(4,38px) 58px 108px 108px 130px 26px;gap:5px;align-items:center;padding:9px 12px;min-width:760px}
+.cl-thead,.cl-row{display:grid;grid-template-columns:minmax(110px,1.1fr) 52px repeat(4,30px) 56px 82px 100px 120px 24px;gap:5px;align-items:center;padding:9px 12px;min-width:740px}
 .cl-thead{font-size:11px;font-weight:700;color:var(--text-3);text-align:center;border-bottom:1px solid var(--border);background:var(--bg-soft);line-height:1.25}
 .cl-thead .cl-th-text{text-align:left}
 .cl-row{border-bottom:1px solid var(--border-2)}
@@ -293,9 +293,9 @@ main{flex:1;padding-top:6px}
 .cl-name-in:hover{border-color:var(--border)}
 .cl-name-in:focus{border-color:var(--accent);background:var(--card)}
 .cl-row.s-done .cl-name-in{color:var(--text-3);text-decoration:line-through}
-.cl-cell{width:100%;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);cursor:pointer;display:grid;place-items:center;font-family:inherit;transition:transform var(--dur),background var(--dur)}
+.cl-cell{width:100%;height:26px;border:1px solid var(--border);border-radius:7px;background:var(--bg-soft);cursor:pointer;display:grid;place-items:center;font-family:inherit;transition:transform var(--dur),background var(--dur)}
 .cl-cell:active{transform:scale(.9)}
-.cl-cell svg{width:16px;height:16px;color:#fff}
+.cl-cell svg{width:14px;height:14px;color:#fff}
 .cl-cell.on[data-s="consult"]{background:var(--accent);border-color:var(--accent)}
 .cl-cell.on[data-s="wait"]{background:var(--orange);border-color:var(--orange)}
 .cl-cell.on[data-s="order"]{background:var(--purple);border-color:var(--purple)}
@@ -305,6 +305,7 @@ main{flex:1;padding-top:6px}
 .cl-tin{width:100%;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;padding:0 8px;outline:none}
 .cl-tin:focus{border-color:var(--accent)}
 .cl-tin::placeholder{color:var(--text-3)}
+.cl-qty-in{text-align:center;padding:0 4px}
 .cl-row-del{border:none;background:none;color:var(--text-3);cursor:pointer;padding:4px;border-radius:8px;display:grid;place-items:center}
 .cl-row-del:hover{color:var(--red);background:var(--bg-soft)}
 .cl-row-del svg{width:15px;height:15px}
@@ -1267,6 +1268,7 @@ function normItem(it){
   }
   CL_STAGES.forEach(s=>{if(typeof it.stages[s.k]!=='boolean')it.stages[s.k]=false});
   if(typeof it.expDate!=='string')it.expDate=(typeof it.doneDate==='string')?it.doneDate:'';
+  if(typeof it.qty!=='string')it.qty='';
   if(typeof it.vendor!=='string')it.vendor='';
   if(typeof it.contact!=='string')it.contact='';
   if(typeof it.note!=='string')it.note='';
@@ -1337,13 +1339,15 @@ function renderChecklistDetail(box,ev){
     const e=document.createElement('div');e.className='cl-empty';e.textContent='항목을 추가해 단계를 체크하세요.';list.appendChild(e);
   }else{
     const thead=document.createElement('div');thead.className='cl-thead';
-    thead.innerHTML=`<span class="cl-th-text">항목</span>${CL_STAGES.map(s=>`<span>${s.name}</span>`).join('')}<span>완료<br>예상날짜</span><span>거래처 상호</span><span>연락처</span><span>비고</span><span></span>`;
+    thead.innerHTML=`<span class="cl-th-text">항목</span><span>수량</span>${CL_STAGES.map(s=>`<span>${s.name}</span>`).join('')}<span>완료<br>예상날짜</span><span>거래처<br>상호</span><span>연락처</span><span>비고</span><span></span>`;
     list.appendChild(thead);
     items.forEach(it=>{
       const row=document.createElement('div');row.className='cl-row'+(it.stages.done?' s-done':'');
       const cells=CL_STAGES.map(s=>`<button class="cl-cell${it.stages[s.k]?' on':''}" data-s="${s.k}" title="${s.name}">${it.stages[s.k]?'<svg data-l="check"></svg>':''}</button>`).join('');
       const dcell=`<button class="cl-dcell${it.expDate?' has':''}" title="완료예상날짜 설정">${it.expDate?fmtMD(it.expDate):'설정'}</button>`;
-      row.innerHTML=`<input class="cl-tin cl-name-in" data-f="text" value="${esc(it.text)}" placeholder="항목 이름" title="항목 이름 수정">${cells}${dcell}`
+      row.innerHTML=`<input class="cl-tin cl-name-in" data-f="text" value="${esc(it.text)}" placeholder="항목 이름" title="항목 이름 수정">`
+        +`<input class="cl-tin cl-qty-in" data-f="qty" value="${esc(it.qty)}" placeholder="수량" title="수량">`
+        +`${cells}${dcell}`
         +`<input class="cl-tin" data-f="vendor" value="${esc(it.vendor)}" placeholder="상호" title="거래처 상호">`
         +`<input class="cl-tin" data-f="contact" value="${esc(it.contact)}" placeholder="연락처" title="연락처">`
         +`<input class="cl-tin" data-f="note" value="${esc(it.note)}" placeholder="비고" title="비고">`
@@ -1380,7 +1384,7 @@ function delEvent(id){
 }
 function addItemChk(evId,text){
   const ev=findEvent(evId);if(!ev)return;
-  ev.items=ev.items||[];ev.items.push({id:uid(),text,stages:{consult:false,wait:false,order:false,done:false},expDate:'',vendor:'',contact:'',note:''});
+  ev.items=ev.items||[];ev.items.push({id:uid(),text,stages:{consult:false,wait:false,order:false,done:false},expDate:'',qty:'',vendor:'',contact:'',note:''});
   ev.updated=now();save();renderChecklist();renderIcons();
   const ni=document.getElementById('clNewItem');if(ni)ni.focus();
 }

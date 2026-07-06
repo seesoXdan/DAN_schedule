@@ -1393,6 +1393,22 @@ function wireDateQuickAdds(root){
 }
 const todosOn=ds=>itemsOn(ds).filter(i=>i.type!=='event');
 
+/* ===== 미완료 할 일 자동 이월 =====
+   완료 체크가 안 된 지난 날짜의 할 일을 오늘로 끌어옵니다.
+   (반복/기간/이벤트/캘린더 일정은 제외 — 각자 규칙대로 표시됨)
+   date를 바꾸면 오늘꼭꼭·전체꼭꼭 모두 자동 반영됩니다. */
+function rolloverTodos(){
+  const t=today();let moved=0;
+  state.items.forEach(it=>{
+    if(it.type==='todo' && (!it.repeat||it.repeat==='none') && !isRange(it)
+       && !it.done && it.date && it.date<t){
+      it.date=t;it.updated=Date.now();moved++;
+    }
+  });
+  if(moved){save();if(typeof refresh==='function')refresh();}
+  return moved;
+}
+
 /* ===== Notifications ===== */
 let notifTimers=[];
 function scheduleNotifs(){
@@ -1447,6 +1463,7 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 function init(){
   loadState();
   state.items.forEach(it=>{if(!it.type)it.type=it.time?'event':'todo';if(!it.updated)it.updated=it.created||Date.now();});
+  rolloverTodos();
   renderIcons();
   const d=new Date();document.getElementById('greetKicker').textContent=kickers.today;
   applyTheme();refresh();if(state.settings.notif)scheduleNotifs();
@@ -1543,6 +1560,12 @@ function init(){
   setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},10000);
   window.addEventListener('focus',()=>{if(syncReady())pullCloud(true)});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syncReady())pullCloud(true)});
+  // 날짜가 바뀌면(자정 넘김 등) 미완료 할 일 이월 후 화면 갱신
+  let _rollDay=today();
+  const checkRollover=()=>{const t=today();if(t!==_rollDay){_rollDay=t;rolloverTodos();refresh();}};
+  window.addEventListener('focus',checkRollover);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkRollover()});
+  setInterval(checkRollover,60000);
 
   document.addEventListener('keydown',e=>{
     if((e.ctrlKey||e.metaKey)&&(e.key==='n'||e.key==='N')){e.preventDefault();openModal(null)}

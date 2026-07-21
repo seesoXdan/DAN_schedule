@@ -1501,26 +1501,28 @@ function delItem(id){
 }
 
 /* ===== 클라우드 동기화 (Firebase Firestore) ===== */
-let pushTimer=null, lastRemoteCount=-1;
+let pushTimer=null, lastRemoteCount=-1, dirty=false;
 function syncCfg(){return (state.settings&&state.settings.sync)||SYNC_DEFAULT}
 function syncReady(){const s=syncCfg();return !!(s.enabled&&s.project&&s.key&&s.code)}
 function setSyncStatus(txt,cls){const el=document.getElementById('syncStatus');if(el){el.textContent=txt;el.className='sync-status '+(cls||'')}}
-function schedulePush(){if(!syncReady())return;clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,1200);}
+function schedulePush(){if(!syncReady())return;dirty=true;clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,1200);}
 function pruneTombstones(){const cut=Date.now()-45*86400000;state.tombstones=(state.tombstones||[]).filter(t=>(t.updated||0)>cut);}
 /* Firestore REST: 문서 boards/{code}, payload는 JSON 문자열 한 필드로 저장 */
 function fsUrl(){const s=syncCfg();return 'https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(s.project)+'/databases/(default)/documents/boards/'+encodeURIComponent(s.code)+'?key='+encodeURIComponent(s.key);}
 async function pushCloud(){
-  if(!syncReady())return;pruneTombstones();
+  if(!syncReady())return;clearTimeout(pushTimer);pruneTombstones();
   const payload=JSON.stringify({items:state.items,tomb:state.tombstones||[],events:state.events||[],etomb:state.etomb||[]});
   const body={fields:{data:{stringValue:payload},updated_at:{integerValue:String(Date.now())}}};
   try{
     setSyncStatus('동기화 중…','busy');
     const r=await fetch(fsUrl(),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok)dirty=false; // 서버에 반영 완료 → 밀린 변경 없음
     setSyncStatus(r.ok?'동기화됨 ✓':'오류 ('+r.status+')',r.ok?'ok':'err');
   }catch(e){setSyncStatus('오프라인','err')}
 }
 async function pullCloud(silent){
   if(!syncReady())return;
+  if(dirty){await pushCloud();} // 밀린 로컬 변경(완료 체크 등)을 먼저 서버에 올려 덮어쓰기 방지
   try{
     if(!silent)setSyncStatus('불러오는 중…','busy');
     const r=await fetch(fsUrl(),{headers:{'Content-Type':'application/json'}});
@@ -1544,7 +1546,7 @@ async function pullCloud(silent){
 }
 function mergeBoards(li,lt,ri,rt){
   const map=new Map();
-  const consider=(rec,deleted)=>{const u=rec.updated||0;const cur=map.get(rec.id);if(!cur||u>=cur.u)map.set(rec.id,{u,deleted,rec})};
+  const consider=(rec,deleted)=>{const u=rec.updated||0;const cur=map.get(rec.id);if(!cur||u>cur.u)map.set(rec.id,{u,deleted,rec})};
   (li||[]).forEach(it=>consider(it,false));(ri||[]).forEach(it=>consider(it,false));
   (lt||[]).forEach(t=>consider(t,true));(rt||[]).forEach(t=>consider(t,true));
   const items=[],tomb=[];

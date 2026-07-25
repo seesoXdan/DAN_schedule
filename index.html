@@ -642,20 +642,15 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
           <div class="set-group">
             <div class="set-row">
               <div class="set-ico" style="background:var(--accent)"><svg data-l="cloud"></svg></div>
-              <div class="set-txt"><div class="t">기기 간 동기화</div><div class="s" id="syncStatus">꺼짐 — 아래 정보를 입력하세요</div></div>
+              <div class="set-txt"><div class="t">기기 간 동기화</div><div class="s" id="syncStatus">꺼짐 — GitHub 토큰을 입력하세요</div></div>
               <div class="switch" id="swSync"></div>
             </div>
             <div id="syncFields">
-              <div class="sync-field"><label>Firebase 프로젝트 ID</label><input id="syncProject" placeholder="예: dan-schedule-abc12" autocomplete="off" spellcheck="false"></div>
-              <div class="sync-field"><label>웹 API 키</label><input id="syncKey" placeholder="AIza..." autocomplete="off" spellcheck="false"></div>
-              <div class="sync-field"><label>동기화 코드 <span class="hint">(모든 기기 동일하게)</span></label>
-                <div class="sync-code-row"><input id="syncCode" placeholder="예: dan-9f3k2p" autocomplete="off" spellcheck="false"><button class="set-btn" id="syncGen">생성</button></div>
-              </div>
+              <div class="sync-field"><label>GitHub 토큰 <span class="hint">(gist 권한만)</span></label><input id="syncToken" type="password" placeholder="github_pat_... 또는 ghp_..." autocomplete="off" spellcheck="false"></div>
               <div class="sync-actions">
-                <button class="set-btn" id="syncCopy">코드 복사</button>
                 <button class="set-btn" id="syncNowBtn">지금 동기화</button>
               </div>
-              <p class="sync-note">여러 기기에 같은 프로젝트 ID·API 키·코드를 입력하면 자동 동기화됩니다. 설정법은 <b>동기화설정.md</b> 참고.</p>
+              <p class="sync-note">모든 기기에 <b>같은 GitHub 토큰</b>을 넣으면 자동으로 같은 비공개 gist를 찾아 동기화됩니다. 토큰 발급법은 <b>동기화설정.md</b> 참고.</p>
             </div>
           </div>
           <div class="section-title">연동 & 데이터</div>
@@ -808,7 +803,9 @@ const TAGS=[
   {id:'orange',c:'#ff9500',name:'업무'},{id:'purple',c:'#af52de',name:'약속'},
   {id:'red',c:'#ff3b30',name:'중요'}
 ];
-const SYNC_DEFAULT={enabled:false,project:'',key:'',code:''};
+const SYNC_DEFAULT={enabled:false,token:'',gistId:''};
+const GIST_FILE='dan-schedule.json';
+const GIST_TAG='dan-schedule-sync';
 const GCAL_DEFAULT={enabled:false,clientId:'',calendarId:'primary',lastSync:0};
 let state={items:[],tombstones:[],events:[],etomb:[],settings:{dark:false,auto:true,notif:false,sync:Object.assign({},SYNC_DEFAULT),gcal:Object.assign({},GCAL_DEFAULT)}};
 function loadState(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r){state=Object.assign(state,r);
@@ -1502,22 +1499,45 @@ function delItem(id){
   save();refresh();toast('삭제됨');
 }
 
-/* ===== 클라우드 동기화 (Firebase Firestore) ===== */
+/* ===== 클라우드 동기화 (GitHub Gist) ===== */
 let pushTimer=null, lastRemoteCount=-1, dirty=false;
 function syncCfg(){return (state.settings&&state.settings.sync)||SYNC_DEFAULT}
-function syncReady(){const s=syncCfg();return !!(s.enabled&&s.project&&s.key&&s.code)}
+function syncReady(){const s=syncCfg();return !!(s.enabled&&s.token)}
 function setSyncStatus(txt,cls){const el=document.getElementById('syncStatus');if(el){el.textContent=txt;el.className='sync-status '+(cls||'')}}
 function schedulePush(){if(!syncReady())return;dirty=true;clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,1200);}
 function pruneTombstones(){const cut=Date.now()-45*86400000;state.tombstones=(state.tombstones||[]).filter(t=>(t.updated||0)>cut);}
-/* Firestore REST: 문서 boards/{code}, payload는 JSON 문자열 한 필드로 저장 */
-function fsUrl(){const s=syncCfg();return 'https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(s.project)+'/databases/(default)/documents/boards/'+encodeURIComponent(s.code)+'?key='+encodeURIComponent(s.key);}
+/* GitHub Gist REST: 비공개 gist 하나(dan-schedule.json)에 payload를 JSON으로 저장.
+   같은 토큰을 쓰는 모든 기기가 마커(description=dan-schedule-sync)로 같은 gist를 자동으로 찾음. */
+function ghFetch(url,opts){
+  const s=syncCfg();
+  return fetch(url,Object.assign({},opts,{headers:Object.assign({
+    'Authorization':'Bearer '+s.token,
+    'Accept':'application/vnd.github+json',
+    'Content-Type':'application/json'
+  },(opts&&opts.headers)||{})}));
+}
+/* 데이터 gist의 id 확보: 저장돼 있으면 그대로, 없으면 내 gist 목록에서 마커로 찾고, 그래도 없으면 새로 만든다 */
+async function ensureGist(){
+  const s=syncCfg();
+  if(s.gistId)return s.gistId;
+  const r=await ghFetch('https://api.github.com/gists?per_page=100');
+  if(r.ok){
+    const list=await r.json();
+    const found=(list||[]).find(g=>g&&g.files&&g.files[GIST_FILE]&&((g.description||'').indexOf(GIST_TAG)>=0));
+    if(found){s.gistId=found.id;saveLocal();return found.id;}
+  }else if(r.status===401){setSyncStatus('토큰이 올바르지 않음','err');return null;}
+  const cr=await ghFetch('https://api.github.com/gists',{method:'POST',body:JSON.stringify({description:GIST_TAG,public:false,files:{[GIST_FILE]:{content:'{}'}}})});
+  if(cr.ok){const g=await cr.json();s.gistId=g.id;saveLocal();return g.id;}
+  return null;
+}
 async function pushCloud(){
   if(!syncReady())return;clearTimeout(pushTimer);pruneTombstones();
   const payload=JSON.stringify({items:state.items,tomb:state.tombstones||[],events:state.events||[],etomb:state.etomb||[]});
-  const body={fields:{data:{stringValue:payload},updated_at:{integerValue:String(Date.now())}}};
   try{
     setSyncStatus('동기화 중…','busy');
-    const r=await fetch(fsUrl(),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const id=await ensureGist();
+    if(!id){setSyncStatus('오류 (gist 준비 실패)','err');return;}
+    const r=await ghFetch('https://api.github.com/gists/'+id,{method:'PATCH',body:JSON.stringify({files:{[GIST_FILE]:{content:payload}}})});
     if(r.ok)dirty=false; // 서버에 반영 완료 → 밀린 변경 없음
     setSyncStatus(r.ok?'동기화됨 ✓':'오류 ('+r.status+')',r.ok?'ok':'err');
   }catch(e){setSyncStatus('오프라인','err')}
@@ -1527,22 +1547,23 @@ async function pullCloud(silent){
   if(dirty){await pushCloud();} // 밀린 로컬 변경(완료 체크 등)을 먼저 서버에 올려 덮어쓰기 방지
   try{
     if(!silent)setSyncStatus('불러오는 중…','busy');
-    const r=await fetch(fsUrl(),{headers:{'Content-Type':'application/json'}});
-    if(r.status===404){lastRemoteCount=0;setSyncStatus('동기화됨 ✓ (서버 비어있음)','ok');return;} // 아직 서버에 데이터 없음
+    const id=await ensureGist();
+    if(!id){setSyncStatus('오류','err');return;}
+    const r=await ghFetch('https://api.github.com/gists/'+id);
     if(!r.ok){setSyncStatus('오류 ('+r.status+')','err');return}
-    const doc=await r.json();
-    const raw=doc&&doc.fields&&doc.fields.data&&doc.fields.data.stringValue;
-    if(raw){
-      let p;try{p=JSON.parse(raw)}catch(e){p=null}
-      if(p){
-        lastRemoteCount=(p.items||[]).length;
-        const merged=mergeBoards(state.items,state.tombstones||[],p.items||[],p.tomb||[]);
-        state.items=merged.items;state.tombstones=merged.tomb;
-        const me=mergeBoards(state.events||[],state.etomb||[],p.events||[],p.etomb||[]);
-        state.events=me.items;state.etomb=me.tomb;
-        saveLocal();refresh();
-      }
-    }
+    const g=await r.json();
+    const f=g&&g.files&&g.files[GIST_FILE];
+    let raw=f&&f.content;
+    if(f&&f.truncated&&f.raw_url){try{const rr=await fetch(f.raw_url);raw=await rr.text();}catch(e){}} // 큰 내용은 raw_url로
+    let p=null;if(raw){try{p=JSON.parse(raw)}catch(e){p=null}}
+    if(p&&(p.items||p.events)){
+      lastRemoteCount=(p.items||[]).length;
+      const merged=mergeBoards(state.items,state.tombstones||[],p.items||[],p.tomb||[]);
+      state.items=merged.items;state.tombstones=merged.tomb;
+      const me=mergeBoards(state.events||[],state.etomb||[],p.events||[],p.etomb||[]);
+      state.events=me.items;state.etomb=me.tomb;
+      saveLocal();refresh();
+    }else{lastRemoteCount=0;} // 아직 서버에 데이터 없음
     setSyncStatus('동기화됨 ✓','ok');
   }catch(e){setSyncStatus('오프라인','err')}
 }
@@ -1890,21 +1911,17 @@ function init(){
   document.getElementById('btnReset').onclick=()=>{if(confirm('모든 일정을 삭제할까요?')){state.items.forEach(it=>state.tombstones.push({id:it.id,updated:Date.now()}));state.items=[];save();refresh();toast('초기화됨')}};
 
   // ----- 클라우드 동기화 UI -----
-  const sProj=document.getElementById('syncProject'),sKey=document.getElementById('syncKey'),sCode=document.getElementById('syncCode');
-  function bindSyncInput(el,field){el.addEventListener('input',()=>{state.settings.sync[field]=el.value.trim();saveLocal();});}
-  bindSyncInput(sProj,'project');bindSyncInput(sKey,'key');bindSyncInput(sCode,'code');
+  const sToken=document.getElementById('syncToken');
+  sToken.addEventListener('input',()=>{state.settings.sync.token=sToken.value.trim();state.settings.sync.gistId='';saveLocal();});
   document.getElementById('swSync').onclick=async()=>{
     const s=state.settings.sync;s.enabled=!s.enabled;saveLocal();renderSyncSettings();
     if(s.enabled&&syncReady()){await pullCloud();await pushCloud();}
-    else if(s.enabled){toast('URL·key·코드를 입력하세요')}
+    else if(s.enabled){toast('GitHub 토큰을 입력하세요')}
   };
-  document.getElementById('syncGen').onclick=()=>{sCode.value='dan-'+Math.random().toString(36).slice(2,8);state.settings.sync.code=sCode.value;saveLocal();renderSyncSettings();};
-  document.getElementById('syncCopy').onclick=()=>{const c=state.settings.sync.code||'';if(!c){toast('코드가 없어요');return}(navigator.clipboard?navigator.clipboard.writeText(c):Promise.reject()).then(()=>toast('코드 복사됨: '+c)).catch(()=>toast('코드: '+c));};
   document.getElementById('syncNowBtn').onclick=async()=>{
-    if(!syncReady()){toast('먼저 동기화를 켜고 정보를 입력하세요');return}
+    if(!syncReady()){toast('먼저 동기화를 켜고 토큰을 입력하세요');return}
     lastRemoteCount=-1;await pullCloud();await pushCloud();
-    const code=state.settings.sync.code;
-    toast('코드 '+code+' · 서버 '+(lastRemoteCount<0?'?':lastRemoteCount)+'개 · 이 기기 '+state.items.length+'개');
+    toast('서버 '+(lastRemoteCount<0?'?':lastRemoteCount)+'개 · 이 기기 '+state.items.length+'개');
   };
   renderSyncSettings();
   if(syncReady()){pullCloud(true);}
@@ -1930,12 +1947,10 @@ function renderSyncSettings(){
   const s=state.settings.sync||SYNC_DEFAULT;
   document.getElementById('swSync').classList.toggle('on',!!s.enabled);
   document.getElementById('syncFields').classList.toggle('on',!!s.enabled);
-  const u=document.getElementById('syncProject'),k=document.getElementById('syncKey'),c=document.getElementById('syncCode');
-  if(u&&document.activeElement!==u)u.value=s.project||'';
-  if(k&&document.activeElement!==k)k.value=s.key||'';
-  if(c&&document.activeElement!==c)c.value=s.code||'';
+  const t=document.getElementById('syncToken');
+  if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
-  else if(!syncReady())setSyncStatus('정보 입력 필요','busy');
+  else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

@@ -515,7 +515,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot">v1.4 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.5 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -685,7 +685,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.2 · 로컬 저장</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.5</div>
         </section>
       </div>
     </main>
@@ -1941,7 +1941,7 @@ function init(){
   });
   window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(state.settings.auto)applyTheme()});
 
-  if(!state.items.length&&!localStorage.getItem(KEY+'.seen')){seed();localStorage.setItem(KEY+'.seen','1')}
+  // 새 브라우저에서 샘플(데모) 데이터를 자동 생성하지 않음. 빈 화면으로 시작하고, 동기화 켜면 실제 데이터를 받아온다.
 }
 function renderSyncSettings(){
   const s=state.settings.sync||SYNC_DEFAULT;
@@ -1951,6 +1951,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.5 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

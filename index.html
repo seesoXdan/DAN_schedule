@@ -515,7 +515,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.6 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.7 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -652,6 +652,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
                 <button class="set-btn" id="syncPullBtn">서버 데이터로 덮어쓰기</button>
               </div>
               <p class="sync-note">모든 기기에 <b>같은 GitHub 토큰</b>을 넣으면 자동으로 같은 비공개 gist를 찾아 동기화됩니다. 토큰 발급법은 <b>동기화설정.md</b> 참고.</p>
+              <button class="set-btn" id="syncPurgeBtn" style="width:100%;margin-top:8px">샘플(데모) 데이터 지우기</button>
             </div>
           </div>
           <div class="section-title">연동 & 데이터</div>
@@ -686,7 +687,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.6</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.7</div>
         </section>
       </div>
     </main>
@@ -1599,6 +1600,18 @@ async function pullReplace(){
     toast('서버 데이터로 교체됨 · '+state.items.length+'개');
   }catch(e){setSyncStatus('오프라인','err');toast('네트워크 오류')}
 }
+/* 내장 샘플(데모) 항목을 제목으로 찾아 삭제. 삭제는 tombstone으로 동기화돼 모든 기기·서버에서 함께 사라진다.
+   수정하지 않은 순정 샘플만 지운다(제목이 바뀐 항목은 건드리지 않음). */
+const SEED_TITLES=['팀 스탠드업 미팅','점심 약속 — 지훈','제주도 워크숍','모닝 스트레칭','분기 보고서 마무리','독서 30분'];
+function purgeSamples(){
+  const set=new Set(SEED_TITLES),now=Date.now(),keep=[];let removed=0;
+  (state.items||[]).forEach(it=>{
+    if(set.has(it.title)){state.tombstones.push({id:it.id,updated:now});removed++;}
+    else keep.push(it);
+  });
+  state.items=keep;save();refresh();
+  toast(removed?('샘플 '+removed+'개 삭제됨 · 동기화 중'):'삭제할 샘플이 없어요');
+}
 
 /* ===== Google Calendar 연동 (OAuth + Calendar REST) ===== */
 let gcalTokenClient=null, gcalToken='', gcalTokenExp=0;
@@ -1950,6 +1963,10 @@ function init(){
     if(!confirm('서버의 데이터를 받아 이 기기 데이터를 덮어씁니다.\n(이 기기의 샘플/기존 내용은 서버 내용으로 교체돼요. 서버는 바뀌지 않습니다.)\n계속할까요?'))return;
     await pullReplace();
   };
+  document.getElementById('syncPurgeBtn').onclick=()=>{
+    if(!confirm('내장 샘플(모닝 스트레칭·분기 보고서·독서 30분 등)을 삭제합니다.\n동기화가 켜져 있으면 다른 기기·서버에서도 함께 사라집니다.\n계속할까요?'))return;
+    purgeSamples();
+  };
   renderSyncSettings();
   if(syncReady()){pullCloud(true);}
   setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},10000);
@@ -1978,7 +1995,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.6 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.7 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

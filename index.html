@@ -515,7 +515,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.5 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.6 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -649,6 +649,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <div class="sync-field"><label>GitHub 토큰 <span class="hint">(gist 권한만)</span></label><input id="syncToken" type="password" placeholder="github_pat_... 또는 ghp_..." autocomplete="off" spellcheck="false"></div>
               <div class="sync-actions">
                 <button class="set-btn" id="syncNowBtn">지금 동기화</button>
+                <button class="set-btn" id="syncPullBtn">서버 데이터로 덮어쓰기</button>
               </div>
               <p class="sync-note">모든 기기에 <b>같은 GitHub 토큰</b>을 넣으면 자동으로 같은 비공개 gist를 찾아 동기화됩니다. 토큰 발급법은 <b>동기화설정.md</b> 참고.</p>
             </div>
@@ -685,7 +686,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.5</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.6</div>
         </section>
       </div>
     </main>
@@ -1577,6 +1578,27 @@ function mergeBoards(li,lt,ri,rt){
   return {items,tomb};
 }
 async function syncNow(){await pullCloud();await pushCloud();}
+/* 서버(gist)의 데이터를 내려받아 이 기기의 데이터를 통째로 교체. 로컬을 서버로 올리지 않아 안전(샘플 제거용). */
+async function pullReplace(){
+  const s=syncCfg();
+  if(!s.token){toast('먼저 GitHub 토큰을 입력하세요');return;}
+  try{
+    setSyncStatus('불러오는 중…','busy');
+    const id=await ensureGist();
+    if(!id){setSyncStatus('오류','err');toast('서버 연결 실패');return;}
+    const r=await ghFetch('https://api.github.com/gists/'+id);
+    if(!r.ok){setSyncStatus('오류 ('+r.status+')','err');toast('불러오기 실패 ('+r.status+')');return;}
+    const g=await r.json();const f=g&&g.files&&g.files[GIST_FILE];
+    let raw=f&&f.content;
+    if(f&&f.truncated&&f.raw_url){try{const rr=await fetch(f.raw_url);raw=await rr.text();}catch(e){}}
+    let p=null;try{p=JSON.parse(raw||'{}')}catch(e){p=null}
+    if(!p){setSyncStatus('오류','err');toast('서버 데이터 형식 오류');return;}
+    state.items=p.items||[];state.tombstones=p.tomb||[];state.events=p.events||[];state.etomb=p.etomb||[];
+    dirty=false;lastRemoteCount=state.items.length;saveLocal();refresh();
+    setSyncStatus('동기화됨 ✓','ok');
+    toast('서버 데이터로 교체됨 · '+state.items.length+'개');
+  }catch(e){setSyncStatus('오프라인','err');toast('네트워크 오류')}
+}
 
 /* ===== Google Calendar 연동 (OAuth + Calendar REST) ===== */
 let gcalTokenClient=null, gcalToken='', gcalTokenExp=0;
@@ -1923,6 +1945,11 @@ function init(){
     lastRemoteCount=-1;await pullCloud();await pushCloud();
     toast('서버 '+(lastRemoteCount<0?'?':lastRemoteCount)+'개 · 이 기기 '+state.items.length+'개');
   };
+  document.getElementById('syncPullBtn').onclick=async()=>{
+    if(!syncCfg().token){toast('먼저 GitHub 토큰을 입력하세요');return}
+    if(!confirm('서버의 데이터를 받아 이 기기 데이터를 덮어씁니다.\n(이 기기의 샘플/기존 내용은 서버 내용으로 교체돼요. 서버는 바뀌지 않습니다.)\n계속할까요?'))return;
+    await pullReplace();
+  };
   renderSyncSettings();
   if(syncReady()){pullCloud(true);}
   setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},10000);
@@ -1951,7 +1978,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.5 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.6 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

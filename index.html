@@ -515,7 +515,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.7 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.8 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -687,7 +687,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.7</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.8</div>
         </section>
       </div>
     </main>
@@ -1370,6 +1370,35 @@ function renderChecklistDetail(box,ev){
   head.querySelector('#clAddItem').onclick=addIt;
   ni.addEventListener('keydown',e=>{if(e.key==='Enter')addIt()});
 }
+const PRESET_SEEDS=[
+  {key:'gunjin2026',name:'제57차 군진의학 및 2026년 국제군진외상학술대회',date:'2026-09-17',items:[
+    '등록데스크 운영(등록시스템·참가자 명단)',
+    '명찰·명패 제작',
+    '현수막·배너 제작',
+    '초록집·프로그램북 인쇄',
+    '무대·음향·영상 장비',
+    '동시통역 부스·장비',
+    '케이터링(다과·식사)',
+    '좌석 배치 및 안내사인물',
+    '해외 연자 숙박·이동 지원',
+    '기념품·사은품',
+    '사진·영상 촬영 기록',
+    '초청장·사전 안내 발송'
+  ]}
+];
+function applyPresetSeeds(){
+  state.seeded=state.seeded||[];
+  let changed=false;
+  PRESET_SEEDS.forEach(sd=>{
+    if(state.seeded.includes(sd.key))return;
+    if((state.events||[]).some(e=>e.name===sd.name)){state.seeded.push(sd.key);changed=true;return;}
+    state.events=state.events||[];
+    state.events.push({id:uid(),name:sd.name,date:sd.date,items:sd.items.map(t=>({id:uid(),text:t,stages:{consult:false,wait:false,order:false,done:false},expDate:'',qty:'',vendor:'',contact:'',note:''})),created:now(),updated:now()});
+    state.seeded.push(sd.key);
+    changed=true;
+  });
+  if(changed)saveLocal();
+}
 function addEvent(name){
   state.events=state.events||[];
   state.events.push({id:uid(),name,date:'',items:[],created:now(),updated:now()});
@@ -1869,6 +1898,7 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 /* ===== Init ===== */
 function init(){
   loadState();
+  applyPresetSeeds();
   state.items.forEach(it=>{if(!it.type)it.type=it.time?'event':'todo';if(!it.updated)it.updated=it.created||Date.now();});
   rolloverTodos();
   renderIcons();
@@ -1995,7 +2025,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.7 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.8 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

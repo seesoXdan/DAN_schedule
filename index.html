@@ -515,7 +515,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.10 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.11 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -687,7 +687,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.10</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.11</div>
         </section>
       </div>
     </main>
@@ -1263,6 +1263,7 @@ const CL_STAGES=[{k:'consult',name:'상담'},{k:'wait',name:'대기'},{k:'order'
 let checklistSel=null; // 선택된 행사 id (null이면 목록 화면)
 function findEvent(id){return (state.events||[]).find(e=>e.id===id)}
 function normItem(it){
+  if(!it||typeof it!=='object')return it;
   if(!it.stages||typeof it.stages!=='object'){
     it.stages={consult:false,wait:false,order:false,done:false};
     if(it.status&&it.stages.hasOwnProperty(it.status))it.stages[it.status]=true;
@@ -1276,7 +1277,20 @@ function normItem(it){
   delete it.doneDate;delete it.status;
   return it;
 }
-function normEvents(){(state.events||[]).forEach(ev=>{(ev.items||[]).forEach(normItem)})}
+function sanitizeEvents(){
+  let changed=false;
+  (state.events||[]).forEach(ev=>{
+    if(!Array.isArray(ev.items)){ev.items=[];changed=true;return;}
+    const clean=[];
+    for(let i=0;i<ev.items.length;i++){
+      const it=ev.items[i];
+      if(it&&typeof it==='object'&&typeof it.text==='string')clean.push(it);else changed=true;
+    }
+    if(changed)ev.items=clean;
+  });
+  return changed;
+}
+function normEvents(){sanitizeEvents();(state.events||[]).forEach(ev=>{(ev.items||[]).forEach(normItem)})}
 const fmtMD=s=>{if(!s)return'';const dt=parseD(s);return `${dt.getMonth()+1}/${dt.getDate()}`};
 function renderChecklist(){
   const box=document.getElementById('checklistBody');if(!box)return;
@@ -1411,10 +1425,10 @@ function applyPresetSeeds(){
     state.seeded.push(sd.key);
     changed=true;
   });
-  if(changed)saveLocal();
+  if(changed)save();
 }
 const PRESET_ITEM_UPDATES=[
-  {key:'gunjin2026-items-v3',eventName:'제57차 군진의학 및 2026년 국제군진외상학술대회',items:GUNJIN2026_ITEMS}
+  {key:'gunjin2026-items-v4',eventName:'제57차 군진의학 및 2026년 국제군진외상학술대회',items:GUNJIN2026_ITEMS}
 ];
 function applyPresetItemUpdates(){
   state.seeded=state.seeded||[];
@@ -1426,7 +1440,7 @@ function applyPresetItemUpdates(){
     state.seeded.push(u.key);
     changed=true;
   });
-  if(changed)saveLocal();
+  if(changed)save();
 }
 function addEvent(name){
   state.events=state.events||[];
@@ -1622,6 +1636,7 @@ async function pullCloud(silent){
       state.items=merged.items;state.tombstones=merged.tomb;
       const me=mergeBoards(state.events||[],state.etomb||[],p.events||[],p.etomb||[]);
       state.events=me.items;state.etomb=me.tomb;
+      if(sanitizeEvents()){(state.events||[]).forEach(ev=>ev.updated=now());dirty=true;}
       saveLocal();refresh();
     }else{lastRemoteCount=0;} // 아직 서버에 데이터 없음
     setSyncStatus('동기화됨 ✓','ok');
@@ -1653,6 +1668,7 @@ async function pullReplace(){
     let p=null;try{p=JSON.parse(raw||'{}')}catch(e){p=null}
     if(!p){setSyncStatus('오류','err');toast('서버 데이터 형식 오류');return;}
     state.items=p.items||[];state.tombstones=p.tomb||[];state.events=p.events||[];state.etomb=p.etomb||[];
+    if(sanitizeEvents()){(state.events||[]).forEach(ev=>ev.updated=now());}
     dirty=false;lastRemoteCount=state.items.length;saveLocal();refresh();
     setSyncStatus('동기화됨 ✓','ok');
     toast('서버 데이터로 교체됨 · '+state.items.length+'개');
@@ -1927,6 +1943,7 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 /* ===== Init ===== */
 function init(){
   loadState();
+  sanitizeEvents();
   applyPresetSeeds();
   applyPresetItemUpdates();
   state.items.forEach(it=>{if(!it.type)it.type=it.time?'event':'todo';if(!it.updated)it.updated=it.created||Date.now();});
@@ -2055,7 +2072,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.10 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.11 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

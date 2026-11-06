@@ -174,6 +174,14 @@ main{flex:1;padding-top:6px}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));
   border-radius:99px;width:0;transition:width .55s var(--ease)}
 .progress-sub{font-size:13px;color:var(--text-2);margin-top:12px}
+#updBar{position:fixed;left:0;right:0;top:0;z-index:9999;display:none;align-items:center;gap:10px;
+  padding:10px 14px;background:var(--accent);color:#fff;font-size:13.5px;font-weight:700;
+  box-shadow:0 2px 12px rgba(0,0,0,.35)}
+#updBar.on{display:flex}
+#updBar .u-t{flex:1;min-width:0}
+#updBar button{flex:none;border:none;border-radius:8px;padding:6px 12px;background:#fff;color:var(--accent);
+  font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+#updBar .u-x{background:transparent;color:#fff;padding:6px 8px;font-weight:700}
 .prog-back{display:none;align-items:center;gap:4px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);
   font-size:12.5px;font-weight:700;color:var(--accent)}
 .prog-back svg{width:14px;height:14px}
@@ -619,7 +627,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg><span class="si-lbl">설정</span></button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.18 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.19 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -798,7 +806,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.18</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.19</div>
         </section>
       </div>
     </main>
@@ -861,6 +869,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
 </div>
 
 <!-- Bottom nav (mobile) -->
+<div id="updBar"><span class="u-t"></span><button id="updGo">지금 업데이트</button><button class="u-x" id="updX">나중에</button></div>
 <nav class="bottom">
   <div class="nav-inner">
     <button class="nav-item on" data-view="today"><svg data-l="sun"></svg>오늘꼭꼭!</button>
@@ -2267,6 +2276,41 @@ function switchView(v){
 let toastT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),1900)}
 
+/* ===== 버전 자동 확인 (PWA 캐시가 옛 파일을 물고 있는 문제 대응) =====
+   화면에 박힌 버전 문자열을 기준으로 서버 파일과 비교한다. 다르면 한 번은 조용히
+   캐시를 비우고 다시 받고, 그래도 다르면 배너로 알린다. */
+const APP_VER=(function(){const e=document.getElementById('sideFoot');const m=e&&e.textContent.match(/v[\d.]+/);return m?m[0]:''})();
+const UPD_FLAG='daesik.autoupd';
+async function fetchLiveVer(){
+  const r=await fetch(location.pathname+'?_cv='+Date.now(),{cache:'no-store'});
+  if(!r.ok)throw new Error(r.status);
+  const m=(await r.text()).match(/id="sideFoot"[^>]*>\s*(v[\d.]+)/);
+  if(!m)throw new Error('no version');
+  return m[1];
+}
+async function hardReload(ver){
+  try{if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}}catch(e){}
+  try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()))}}catch(e){}
+  location.replace(location.pathname+'?v='+encodeURIComponent(ver));
+}
+function showUpdBar(ver){
+  const bar=document.getElementById('updBar');if(!bar)return;
+  bar.querySelector('.u-t').textContent=`새 버전 ${ver}이 있어요 (지금 ${APP_VER})`;
+  bar.classList.add('on');
+  bar.querySelector('#updGo').onclick=()=>hardReload(ver);
+  bar.querySelector('#updX').onclick=()=>bar.classList.remove('on');
+}
+async function checkUpdate(auto){
+  if(!APP_VER)return;
+  let live;try{live=await fetchLiveVer()}catch(e){return}
+  if(live===APP_VER){try{sessionStorage.removeItem(UPD_FLAG)}catch(e){}return}
+  let tried=false;try{tried=sessionStorage.getItem(UPD_FLAG)===live}catch(e){tried=true}
+  if(auto&&!tried){try{sessionStorage.setItem(UPD_FLAG,live)}catch(e){}hardReload(live);return}
+  showUpdBar(live);
+}
+let updLast=0;
+function checkUpdateThrottled(){const n=Date.now();if(n-updLast<60000)return;updLast=n;checkUpdate(false)}
+
 /* ===== Init ===== */
 function init(){
   loadState();
@@ -2373,6 +2417,9 @@ function init(){
     purgeSamples();
   };
   renderSyncSettings();
+  checkUpdate(true);
+  window.addEventListener('focus',checkUpdateThrottled);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdateThrottled()});
   if(syncReady()){pullCloud(true);}
   setInterval(()=>{if(syncReady()&&document.visibilityState==='visible')pullCloud(true)},10000);
   window.addEventListener('focus',()=>{if(syncReady())pullCloud(true)});
@@ -2400,7 +2447,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.18 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.19 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

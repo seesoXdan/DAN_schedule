@@ -371,6 +371,11 @@ main{flex:1;padding-top:6px}
 .cl-ev-body{flex:1;min-width:0}
 .cl-ev-title{font-weight:700;font-size:15.5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cl-ev-sub{font-size:12.5px;color:var(--text-3);margin-top:2px}
+.cl-ev-auto{font-style:normal;font-size:11px;color:var(--text-3);opacity:.75}
+.cl-ev-dd{margin-left:8px;font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;
+  background:var(--bg-soft2);color:var(--text-2);vertical-align:middle}
+.cl-ev-dd.soon{background:rgba(255,149,0,.16);color:var(--orange)}
+.cl-ev-dd.over{background:rgba(255,59,48,.16);color:var(--red)}
 .cl-ev-prog{flex:none;text-align:right;font-size:12px;color:var(--text-2)}
 .cl-ev-bar{width:64px;height:5px;border-radius:99px;background:var(--bg-soft2);margin-top:5px;overflow:hidden}
 .cl-ev-bar>i{display:block;height:100%;background:var(--green);border-radius:99px}
@@ -627,7 +632,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg><span class="si-lbl">설정</span></button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.19 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.20 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -806,7 +811,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.19</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.20</div>
         </section>
       </div>
     </main>
@@ -1166,13 +1171,31 @@ function openTdyCal(){tdyCalCur=parseD(todayView);renderTdyCal();renderIcons();d
 function closeTdyCal(){document.getElementById('tdyCal').classList.remove('on');}
 function toggleTdyCal(){document.getElementById('tdyCal').classList.contains('on')?closeTdyCal():openTdyCal();}
 const CHK_COLORS=['#0a84ff','#af52de','#ff9500','#34c759','#ff3b30','#5ac8fa'];
+/* 행사 이름에 적힌 "12월 3일" / "11월27일" / "12월 14-20일" 같은 표기에서 첫째날을 읽는다.
+   ev.date(직접 지정)가 있으면 그게 항상 우선. 읽은 값은 저장하지 않고 표시·정렬에만 쓴다. */
+function parseEvDate(name){
+  const m=String(name||'').match(/(\d{1,2})\s*월\s*(\d{1,2})/);
+  if(!m)return '';
+  const mo=+m[1],dy=+m[2];
+  if(mo<1||mo>12||dy<1||dy>31)return '';
+  const n=new Date(),base=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+  for(const y of [n.getFullYear()-1,n.getFullYear(),n.getFullYear()+1]){
+    const d=new Date(y,mo-1,dy);
+    if(d.getMonth()!==mo-1)continue;
+    const diff=Math.round((d-base)/86400000);
+    if(diff>=-60&&diff<=305)return ymd(d);
+  }
+  return '';
+}
+function evDate(ev){return (ev&&ev.date)?ev.date:parseEvDate(ev&&ev.name)}
 function evOrderList(){
   const td=today();
   return (state.events||[]).slice().sort((a,b)=>{
-    const pa=(a.date&&a.date<td)?1:0,pb=(b.date&&b.date<td)?1:0;
+    const da=evDate(a),db=evDate(b);
+    const pa=(da&&da<td)?1:0,pb=(db&&db<td)?1:0;
     if(pa!==pb)return pa-pb;
-    return pa?String(b.date||'').localeCompare(String(a.date||''))
-             :String(a.date||'9999').localeCompare(String(b.date||'9999'));
+    return pa?String(db||'').localeCompare(String(da||''))
+             :String(da||'9999').localeCompare(String(db||'9999'));
   });
 }
 function evColor(id){const l=evOrderList();const i=l.findIndex(e=>e.id===id);return CHK_COLORS[(i<0?0:i)%CHK_COLORS.length]}
@@ -1193,11 +1216,12 @@ function renderTodayEvPanel(t){
   const counts={};CL_STAGES.forEach(s=>counts[s.k]=items.filter(i=>i.stages&&i.stages[s.k]).length);
   const color=evColor(ev.id);
   let dd='';
-  if(ev.date){const d=dayDiff(t,ev.date);dd=`<span class="evp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+  const _ed=evDate(ev);
+  if(_ed){const d=dayDiff(t,_ed);dd=`<span class="evp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
   const panel=document.createElement('div');panel.className='tep';
   panel.innerHTML=`<div class="tep-top"><i class="tep-dot" style="background:${color}"></i>
       <div class="tep-h"><div class="tep-name">${esc(ev.name)}</div>
-        <div class="tep-sub">${dd}<span>${ev.date?esc(fmtDate(ev.date)):'날짜 미정'}</span><span>· 항목 ${items.length}개</span></div></div>
+        <div class="tep-sub">${dd}<span>${_ed?esc(fmtDate(_ed))+(ev.date?'':' (이름 기준)'):'날짜 미정'}</span><span>· 항목 ${items.length}개</span></div></div>
       <button class="tep-btn" id="tepFull">전체 편집</button>
       <button class="tep-x" id="tepClose" title="닫기"><svg data-l="x"></svg></button></div>
     <div class="tep-sum">${CL_STAGES.map(s=>`<span class="tep-chip">${s.name} ${counts[s.k]}</span>`).join('')}</div>
@@ -1284,7 +1308,8 @@ function renderEventProgress(t){
     const late=items.filter(i=>i.expDate&&!(i.stages&&i.stages.done)&&dayDiff(t,i.expDate)<0).length;
     const color=evColor(ev.id);
     let dd='';
-    if(ev.date){const d=dayDiff(t,ev.date);dd=`<span class="evp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+    const _ed=evDate(ev);
+  if(_ed){const d=dayDiff(t,_ed);dd=`<span class="evp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
     const card=document.createElement('div');card.className='evp-card';
     card.innerHTML=`<div class="evp-top"><i class="evp-dot" style="background:${color}"></i>`
       +`<span class="evp-name">${esc(ev.name)}</span><span class="evp-pct" style="color:${color}">${pct}%</span></div>`
@@ -1309,7 +1334,8 @@ function renderTodayChecklist(t){
   const td=today();
   const groups=[];
   (state.events||[]).forEach(ev=>{
-    if(ev.date&&ev.date<td)return; // 이미 끝난 행사는 오늘 목록에서 제외
+    const _d=evDate(ev);
+    if(_d&&_d<td)return; // 이미 끝난 행사는 오늘 목록에서 제외
     const items=(ev.items||[]).filter(it=>{
       if(!it||!it.expDate)return false;
       if(it.stages&&it.stages.done)return false;
@@ -1318,7 +1344,7 @@ function renderTodayChecklist(t){
     }).sort((a,b)=>String(a.expDate).localeCompare(String(b.expDate)));
     if(items.length)groups.push({ev,items});
   });
-  groups.sort((a,b)=>String(a.ev.date||'9999').localeCompare(String(b.ev.date||'9999')));
+  groups.sort((a,b)=>String(evDate(a.ev)||'9999').localeCompare(String(evDate(b.ev)||'9999')));
   const total=groups.reduce((n,g)=>n+g.items.length,0);
   const cnt=document.getElementById('evtChkCount');if(cnt)cnt.textContent=total;
   if(title)title.style.display=total?'':'none';
@@ -1328,7 +1354,8 @@ function renderTodayChecklist(t){
     const color=evColor(g.ev.id);
     const head=document.createElement('div');head.className='tgrp';
     let dd='';
-    if(g.ev.date){const d=dayDiff(t,g.ev.date);dd=`<span class="tgrp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+    const _gd=evDate(g.ev);
+    if(_gd){const d=dayDiff(t,_gd);dd=`<span class="tgrp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
     head.innerHTML=`<i class="tgrp-dot" style="background:${color}"></i><span class="tgrp-name">${esc(g.ev.name)}</span>${dd}<span class="tgrp-cnt">${g.items.length}건</span>`;
     head.querySelector('.tgrp-name').onclick=()=>openTodayEv(g.ev.id);
     wrap.appendChild(head);
@@ -1614,18 +1641,28 @@ function renderChecklistList(box){
   const add=document.createElement('div');add.className='cl-add';
   add.innerHTML=`<input type="text" id="clNewEv" placeholder="행사 이름 입력 후 추가 (예: 세종컨벤션 부스)"><button id="clAddEv"><svg data-l="plus"></svg>추가</button>`;
   box.appendChild(add);
-  const events=(state.events||[]).slice().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.created||0)-(b.created||0));
+  const _td=today();
+  const events=(state.events||[]).slice().sort((a,b)=>{
+    const da=evDate(a),db=evDate(b);
+    const pa=(da&&da<_td)?1:0,pb=(db&&db<_td)?1:0;
+    if(pa!==pb)return pa-pb;
+    const r=pa?String(db||'').localeCompare(String(da||'')):String(da||'9999').localeCompare(String(db||'9999'));
+    return r||((a.created||0)-(b.created||0));
+  });
   if(!events.length){
     const e=document.createElement('div');e.className='cl-empty';e.textContent='아직 행사가 없어요. 위에 이름을 적어 추가하세요.';box.appendChild(e);
   }else{
     events.forEach(ev=>{
       const items=ev.items||[],done=items.filter(i=>i.stages&&i.stages.done).length,pct=items.length?Math.round(done/items.length*100):0;
+      const evd=evDate(ev);
+      let evdd='';
+      if(evd){const d=dayDiff(_td,evd);evdd=`<span class="cl-ev-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
       const row=document.createElement('div');row.className='cl-ev';
       row.innerHTML=`
         <div class="cl-ev-ico"><svg data-l="clipboard"></svg></div>
         <div class="cl-ev-body">
-          <div class="cl-ev-title">${esc(ev.name)}</div>
-          <div class="cl-ev-sub">${ev.date?esc(fmtDate(ev.date)):'날짜 미정'} · 항목 ${items.length}개</div>
+          <div class="cl-ev-title">${esc(ev.name)}${evdd}</div>
+          <div class="cl-ev-sub">${evd?esc(fmtDate(evd))+(ev.date?'':' <i class="cl-ev-auto">이름 기준</i>'):'날짜 미정'} · 항목 ${items.length}개</div>
         </div>
         <div class="cl-ev-prog">${done}/${items.length}<div class="cl-ev-bar"><i style="width:${pct}%"></i></div></div>
         <button class="cl-ev-del" title="행사 삭제"><svg data-l="trash"></svg></button>`;
@@ -2447,7 +2484,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.19 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.20 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

@@ -515,7 +515,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.11 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.12 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -687,7 +687,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.11</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.12</div>
         </section>
       </div>
     </main>
@@ -1427,6 +1427,32 @@ function applyPresetSeeds(){
   });
   if(changed)save();
 }
+const PRESET_TODO_SEEDS=[
+  {key:'trip-202612-booking',items:[
+    {title:"제주 호텔 예약 ① 첫째주 — 12/1~12/4 2룸 + 12/2~12/4 2룸",date:"2026-11-07"},
+    {title:"제주 호텔 예약 ② 둘째주 — 12/9~12/12 2룸 + 12/9~12/11 2룸",date:"2026-11-07"},
+    {title:"목포↔제주 배 예약 — 12/1 출발 / 12/12 출발",date:"2026-11-07"},
+    {title:"제주항공 예약 — 12/2 출발 2명",date:"2026-11-08"},
+    {title:"제주항공 예약 — 12/4 제주 출발 4명",date:"2026-11-08"},
+    {title:"제주항공 예약 — 12/9 제주 출발 4명",date:"2026-11-08"},
+    {title:"제주항공 예약 — 12/11 출발 2명",date:"2026-11-08"},
+    {title:"대전 호텔 예약 — 12/12~12/15 2룸",date:"2026-11-08"}
+  ]}
+];
+function applyPresetTodoSeeds(){
+  state.seeded=state.seeded||[];
+  let changed=false;
+  PRESET_TODO_SEEDS.forEach(sd=>{
+    if(state.seeded.includes(sd.key))return;
+    state.items=state.items||[];
+    sd.items.slice().reverse().forEach(t=>{
+      state.items.push({id:uid(),title:t.title,type:'todo',date:t.date,endDate:'',time:'',repeat:'none',tag:t.tag||'blue',source:'other',done:false,doneDates:[],order:topOrder(),created:now(),updated:now()});
+    });
+    state.seeded.push(sd.key);
+    changed=true;
+  });
+  if(changed)save();
+}
 const PRESET_ITEM_UPDATES=[
   {key:'gunjin2026-items-v4',eventName:'제57차 군진의학 및 2026년 국제군진외상학술대회',items:GUNJIN2026_ITEMS}
 ];
@@ -1946,6 +1972,7 @@ function init(){
   sanitizeEvents();
   applyPresetSeeds();
   applyPresetItemUpdates();
+  applyPresetTodoSeeds();
   state.items.forEach(it=>{if(!it.type)it.type=it.time?'event':'todo';if(!it.updated)it.updated=it.created||Date.now();});
   rolloverTodos();
   renderIcons();
@@ -2072,7 +2099,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.11 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.12 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

@@ -37,6 +37,28 @@
   --done-bg:rgba(52,199,89,.16);
 }
 :root{--done-bg:rgba(52,199,89,.10)}
+/* ===== 오늘 화면: 행사 그룹형 목록 ===== */
+.tgrp{display:flex;align-items:center;gap:8px;margin:14px 0 7px}
+.tgrp:first-child{margin-top:2px}
+.tgrp-dot{width:9px;height:9px;border-radius:99px;flex:none}
+.tgrp-name{font-size:13.5px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.tgrp-name:hover{color:var(--accent)}
+.tgrp-dd{font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--bg-soft2);color:var(--text-2);flex:none}
+.tgrp-dd.soon{background:rgba(255,149,0,.16);color:var(--orange)}
+.tgrp-dd.over{background:rgba(255,59,48,.16);color:var(--red)}
+.tgrp-cnt{margin-left:auto;font-size:11.5px;color:var(--text-3);flex:none}
+.cirow{display:flex;align-items:flex-start;gap:10px;padding:10px 11px;border-radius:var(--radius-sm);
+  background:var(--card);border:1px solid var(--border);margin-bottom:6px;position:relative;overflow:hidden}
+.cirow.over{background:rgba(255,59,48,.07)}
+.cirow-bar{position:absolute;left:0;top:0;bottom:0;width:3px}
+.cirow-ck{width:19px;height:19px;border-radius:99px;border:1.8px solid var(--text-3);flex:none;margin-top:1px;
+  cursor:pointer;background:none;padding:0;display:grid;place-items:center;color:var(--green)}
+.cirow-ck:hover{border-color:var(--green)}
+.cirow-tx{flex:1;min-width:0;cursor:pointer}
+.cirow-tt{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.cirow-meta{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap;font-size:10.5px;color:var(--text-3)}
+.cirow-late{font-weight:800;color:var(--red)}
+.cirow-today{font-weight:800;color:var(--orange)}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{
@@ -515,7 +537,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg>Settings</button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.12 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.13 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -568,7 +590,9 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <div class="progress-sub" id="progSub">할 일이 없어요</div>
             </div>
             <div>
-              <div class="section-title"><svg data-l="check" style="width:14px;height:14px"></svg> 할 일 <span class="count" id="todoCount">0</span></div>
+              <div class="section-title" id="evtChkTitle"><svg data-l="clipboard" style="width:14px;height:14px"></svg> 행사 <span class="count" id="evtChkCount">0</span></div>
+            <div class="task-list" id="evtChkList"></div>
+            <div class="section-title"><svg data-l="check" style="width:14px;height:14px"></svg> 할 일 <span class="count" id="todoCount">0</span></div>
               <div class="quick-add" data-qa="todo">
                 <div class="qa-plus"><svg data-l="plus"></svg></div>
                 <input placeholder="할 일 추가 후 Enter" autocomplete="off">
@@ -687,7 +711,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.12</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.13</div>
         </section>
       </div>
     </main>
@@ -1045,6 +1069,59 @@ function renderTdyCal(){
 function openTdyCal(){tdyCalCur=parseD(todayView);renderTdyCal();renderIcons();document.getElementById('tdyCal').classList.add('on');}
 function closeTdyCal(){document.getElementById('tdyCal').classList.remove('on');}
 function toggleTdyCal(){document.getElementById('tdyCal').classList.contains('on')?closeTdyCal():openTdyCal();}
+const CHK_COLORS=['#0a84ff','#af52de','#ff9500','#34c759','#ff3b30','#5ac8fa'];
+function dayDiff(from,to){return Math.round((parseD(to)-parseD(from))/86400000)}
+function ddText(d){return d<0?('D+'+(-d)):(d===0?'D-DAY':'D-'+d)}
+/* 오늘 화면 상단: 행사 체크리스트 항목을 완료예상날짜 기준으로 행사별 그룹 표시 */
+function renderTodayChecklist(t){
+  const wrap=document.getElementById('evtChkList'),title=document.getElementById('evtChkTitle');
+  if(!wrap)return;
+  wrap.innerHTML='';
+  sanitizeEvents();
+  const q=searchQ?searchQ.toLowerCase():'';
+  const groups=[];
+  (state.events||[]).forEach(ev=>{
+    const items=(ev.items||[]).filter(it=>{
+      if(!it||!it.expDate)return false;
+      if(it.stages&&it.stages.done)return false;
+      if(q&&!String(it.text||'').toLowerCase().includes(q))return false;
+      return dayDiff(t,it.expDate)<=7;
+    }).sort((a,b)=>String(a.expDate).localeCompare(String(b.expDate)));
+    if(items.length)groups.push({ev,items});
+  });
+  groups.sort((a,b)=>String(a.ev.date||'9999').localeCompare(String(b.ev.date||'9999')));
+  const total=groups.reduce((n,g)=>n+g.items.length,0);
+  const cnt=document.getElementById('evtChkCount');if(cnt)cnt.textContent=total;
+  if(title)title.style.display=total?'':'none';
+  wrap.style.display=total?'':'none';
+  if(!total)return;
+  groups.forEach((g,gi)=>{
+    const color=CHK_COLORS[gi%CHK_COLORS.length];
+    const head=document.createElement('div');head.className='tgrp';
+    let dd='';
+    if(g.ev.date){const d=dayDiff(t,g.ev.date);dd=`<span class="tgrp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+    head.innerHTML=`<i class="tgrp-dot" style="background:${color}"></i><span class="tgrp-name">${esc(g.ev.name)}</span>${dd}<span class="tgrp-cnt">${g.items.length}건</span>`;
+    head.querySelector('.tgrp-name').onclick=()=>{checklistSel=g.ev.id;switchView('checklist')};
+    wrap.appendChild(head);
+    g.items.forEach(it=>{
+      const d=dayDiff(t,it.expDate);
+      const row=document.createElement('div');row.className='cirow'+(d<0?' over':'');
+      const badge=d<0?`<span class="cirow-late">${-d}일 지남</span>`:(d===0?`<span class="cirow-today">오늘</span>`:`<span>D-${d}</span>`);
+      const stage=CL_STAGES.filter(s=>it.stages&&it.stages[s.k]).map(s=>s.name).join('·');
+      row.innerHTML=`<i class="cirow-bar" style="background:${d<0?'var(--red)':color}"></i>`
+        +`<button class="cirow-ck" title="완료 처리"></button>`
+        +`<div class="cirow-tx"><div class="cirow-tt">${esc(it.text)}</div>`
+        +`<div class="cirow-meta">${badge}${it.qty?'<span>· '+esc(it.qty)+'</span>':''}${stage?'<span>· '+esc(stage)+'</span>':''}</div></div>`;
+      row.querySelector('.cirow-ck').onclick=()=>{
+        it.stages=it.stages||{consult:false,wait:false,order:false,done:false};
+        it.stages.done=true;g.ev.updated=now();save();refresh();renderIcons();toast('완료 처리됨');
+      };
+      row.querySelector('.cirow-tx').onclick=()=>{checklistSel=g.ev.id;switchView('checklist')};
+      wrap.appendChild(row);
+    });
+  });
+  renderIcons(wrap);
+}
 function renderToday(){
   const t=todayView;
   updateTodayNav();
@@ -1060,6 +1137,7 @@ function renderToday(){
   if(todos.length)todos.forEach(it=>todoWrap.appendChild(taskRow(it,t,{drag:true,resched:true})));
   else todoWrap.innerHTML=`<div class="sub-empty">${searchQ?'검색 결과가 없어요':'할 일이 없어요 🎉'}</div>`;
   attachDrag(evtWrap,t);attachDrag(todoWrap,t);
+  renderTodayChecklist(t);
   const all=state.items.filter(it=>occursOn(it,t));
   const done=all.filter(it=>isDone(it,t)).length;
   const pct=all.length?Math.round(done/all.length*100):0;
@@ -2099,7 +2177,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.12 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.13 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;

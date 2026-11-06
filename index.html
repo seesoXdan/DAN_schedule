@@ -44,9 +44,12 @@
 .tgrp-name{font-size:13.5px;font-weight:800;letter-spacing:-.01em;cursor:pointer;min-width:0;word-break:break-word;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .tgrp-name:hover{color:var(--accent)}
-.tgrp-dd{font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--bg-soft2);color:var(--text-2);flex:none}
-.tgrp-dd.soon{background:rgba(255,149,0,.16);color:var(--orange)}
-.tgrp-dd.over{background:rgba(255,59,48,.16);color:var(--red)}
+.tgrp-dd{font-size:11.5px;font-weight:800;padding:2.5px 8px;border-radius:99px;background:var(--bg-soft2);color:var(--text-2);flex:none;letter-spacing:-.02em}
+.tgrp-dd.far{background:var(--bg-soft2);color:var(--text-2)}
+.tgrp-dd.near{background:var(--accent-soft);color:var(--accent)}
+.tgrp-dd.soon{background:rgba(255,149,0,.18);color:var(--orange)}
+.tgrp-dd.over{background:rgba(255,59,48,.18);color:var(--red)}
+.tgrp-dd.dday{background:var(--red);color:#fff}
 .tgrp-cnt{margin-left:auto;font-size:11.5px;color:var(--text-3);flex:none}
 .cirow{display:flex;align-items:flex-start;gap:10px;padding:10px 11px;border-radius:var(--radius-sm);
   background:var(--card);border:1px solid var(--border);margin-bottom:6px;position:relative;overflow:hidden}
@@ -204,9 +207,12 @@ main{flex:1;padding-top:6px}
 .evp-track{height:7px;background:var(--bg-soft);border-radius:99px;overflow:hidden}
 .evp-fill{height:100%;border-radius:99px;width:0;transition:width .55s var(--ease)}
 .evp-sub{font-size:11.5px;color:var(--text-2);margin-top:9px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.evp-dd{font-size:10.5px;font-weight:800;padding:1.5px 6px;border-radius:99px;background:var(--bg-soft2);color:var(--text-2)}
-.evp-dd.soon{background:rgba(255,149,0,.16);color:var(--orange)}
-.evp-dd.over{background:rgba(255,59,48,.16);color:var(--red)}
+.evp-dd{font-size:11.5px;font-weight:800;padding:2.5px 8px;border-radius:99px;background:var(--bg-soft2);color:var(--text-2);letter-spacing:-.02em}
+.evp-dd.far{background:var(--bg-soft2);color:var(--text-2)}
+.evp-dd.near{background:var(--accent-soft);color:var(--accent)}
+.evp-dd.soon{background:rgba(255,149,0,.18);color:var(--orange)}
+.evp-dd.over{background:rgba(255,59,48,.18);color:var(--red)}
+.evp-dd.dday{background:var(--red);color:#fff}
 .evp-late{color:var(--red);font-weight:700}
 .evp-card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
 /* ---------- 오늘 화면 인라인 행사 패널 ---------- */
@@ -367,15 +373,18 @@ main{flex:1;padding-top:6px}
 .cl-ev:hover{box-shadow:var(--shadow-md)}
 .cl-ev:active{transform:scale(.995)}
 .cl-ev-ico{width:40px;height:40px;flex:none;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.cl-ev-dtile{width:58px;height:46px;flex:none;border-radius:13px;display:grid;place-items:center;
+  font-size:16px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.cl-ev-dtile.far{background:var(--bg-soft2);color:var(--text-2)}
+.cl-ev-dtile.near{background:var(--accent-soft);color:var(--accent)}
+.cl-ev-dtile.soon{background:rgba(255,149,0,.18);color:var(--orange)}
+.cl-ev-dtile.over{background:rgba(255,59,48,.18);color:var(--red)}
+.cl-ev-dtile.dday{background:var(--red);color:#fff;box-shadow:0 2px 10px rgba(255,59,48,.4)}
 .cl-ev-ico svg{width:20px;height:20px}
 .cl-ev-body{flex:1;min-width:0}
 .cl-ev-title{font-weight:700;font-size:15.5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cl-ev-sub{font-size:12.5px;color:var(--text-3);margin-top:2px}
 .cl-ev-auto{font-style:normal;font-size:11px;color:var(--text-3);opacity:.75}
-.cl-ev-dd{margin-left:8px;font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;
-  background:var(--bg-soft2);color:var(--text-2);vertical-align:middle}
-.cl-ev-dd.soon{background:rgba(255,149,0,.16);color:var(--orange)}
-.cl-ev-dd.over{background:rgba(255,59,48,.16);color:var(--red)}
 .cl-ev-prog{flex:none;text-align:right;font-size:12px;color:var(--text-2)}
 .cl-ev-bar{width:64px;height:5px;border-radius:99px;background:var(--bg-soft2);margin-top:5px;overflow:hidden}
 .cl-ev-bar>i{display:block;height:100%;background:var(--green);border-radius:99px}
@@ -632,7 +641,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
       <button class="side-item" data-view="settings"><svg data-l="settings"></svg><span class="si-lbl">설정</span></button>
     </div>
     <button class="side-add" id="sideAdd"><svg data-l="plus"></svg>새 일정</button>
-    <div class="side-foot" id="sideFoot">v1.20 · 로컬 저장</div>
+    <div class="side-foot" id="sideFoot">v1.21 · 로컬 저장</div>
   </aside>
 
   <!-- ===== Main ===== -->
@@ -811,7 +820,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:50;height:calc(var(--n
               <button class="set-btn danger" id="btnReset">초기화</button>
             </div>
           </div>
-          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.20</div>
+          <div style="text-align:center;color:var(--text-3);font-size:12px;padding:8px 0 24px">대식 일정 · v1.21</div>
         </section>
       </div>
     </main>
@@ -1217,7 +1226,7 @@ function renderTodayEvPanel(t){
   const color=evColor(ev.id);
   let dd='';
   const _ed=evDate(ev);
-  if(_ed){const d=dayDiff(t,_ed);dd=`<span class="evp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+  if(_ed){const d=dayDiff(t,_ed);dd=`<span class="evp-dd ${ddClass(d)}">${ddText(d)}</span>`;}
   const panel=document.createElement('div');panel.className='tep';
   panel.innerHTML=`<div class="tep-top"><i class="tep-dot" style="background:${color}"></i>
       <div class="tep-h"><div class="tep-name">${esc(ev.name)}</div>
@@ -1309,7 +1318,7 @@ function renderEventProgress(t){
     const color=evColor(ev.id);
     let dd='';
     const _ed=evDate(ev);
-  if(_ed){const d=dayDiff(t,_ed);dd=`<span class="evp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+  if(_ed){const d=dayDiff(t,_ed);dd=`<span class="evp-dd ${ddClass(d)}">${ddText(d)}</span>`;}
     const card=document.createElement('div');card.className='evp-card';
     card.innerHTML=`<div class="evp-top"><i class="evp-dot" style="background:${color}"></i>`
       +`<span class="evp-name">${esc(ev.name)}</span><span class="evp-pct" style="color:${color}">${pct}%</span></div>`
@@ -1324,6 +1333,7 @@ function renderEventProgress(t){
 }
 function dayDiff(from,to){return Math.round((parseD(to)-parseD(from))/86400000)}
 function ddText(d){return d<0?('D+'+(-d)):(d===0?'D-DAY':'D-'+d)}
+function ddClass(d){return d<0?'over':(d===0?'dday':(d<=7?'soon':(d<=30?'near':'far')))}
 /* 오늘 화면 상단: 행사 체크리스트 항목을 완료예상날짜 기준으로 행사별 그룹 표시 */
 function renderTodayChecklist(t){
   const wrap=document.getElementById('evtChkList'),title=document.getElementById('evtChkTitle');
@@ -1355,7 +1365,7 @@ function renderTodayChecklist(t){
     const head=document.createElement('div');head.className='tgrp';
     let dd='';
     const _gd=evDate(g.ev);
-    if(_gd){const d=dayDiff(t,_gd);dd=`<span class="tgrp-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+    if(_gd){const d=dayDiff(t,_gd);dd=`<span class="tgrp-dd ${ddClass(d)}">${ddText(d)}</span>`;}
     head.innerHTML=`<i class="tgrp-dot" style="background:${color}"></i><span class="tgrp-name">${esc(g.ev.name)}</span>${dd}<span class="tgrp-cnt">${g.items.length}건</span>`;
     head.querySelector('.tgrp-name').onclick=()=>openTodayEv(g.ev.id);
     wrap.appendChild(head);
@@ -1655,13 +1665,13 @@ function renderChecklistList(box){
     events.forEach(ev=>{
       const items=ev.items||[],done=items.filter(i=>i.stages&&i.stages.done).length,pct=items.length?Math.round(done/items.length*100):0;
       const evd=evDate(ev);
-      let evdd='';
-      if(evd){const d=dayDiff(_td,evd);evdd=`<span class="cl-ev-dd ${d<0?'over':(d<=7?'soon':'')}">${ddText(d)}</span>`;}
+      let evdd='<div class="cl-ev-ico"><svg data-l="clipboard"></svg></div>';
+      if(evd){const d=dayDiff(_td,evd);evdd=`<div class="cl-ev-dtile ${ddClass(d)}">${ddText(d)}</div>`;}
       const row=document.createElement('div');row.className='cl-ev';
       row.innerHTML=`
-        <div class="cl-ev-ico"><svg data-l="clipboard"></svg></div>
+        ${evdd}
         <div class="cl-ev-body">
-          <div class="cl-ev-title">${esc(ev.name)}${evdd}</div>
+          <div class="cl-ev-title">${esc(ev.name)}</div>
           <div class="cl-ev-sub">${evd?esc(fmtDate(evd))+(ev.date?'':' <i class="cl-ev-auto">이름 기준</i>'):'날짜 미정'} · 항목 ${items.length}개</div>
         </div>
         <div class="cl-ev-prog">${done}/${items.length}<div class="cl-ev-bar"><i style="width:${pct}%"></i></div></div>
@@ -2484,7 +2494,7 @@ function renderSyncSettings(){
   if(t&&document.activeElement!==t)t.value=s.token||'';
   if(!s.enabled)setSyncStatus('꺼짐','');
   else if(!syncReady())setSyncStatus('토큰 입력 필요','busy');
-  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.20 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
+  const sf=document.getElementById('sideFoot');if(sf)sf.textContent='v1.21 · '+(syncReady()?'GitHub 동기화':'로컬 저장');
 }
 function renderGcalSettings(){
   const g=state.settings.gcal||GCAL_DEFAULT;
